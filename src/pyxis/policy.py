@@ -16,7 +16,7 @@ class ControlPolicy:
     allow_auto_for_actions: set[str] = field(default_factory=set)
 
     @classmethod
-    def safe_default(cls) -> "ControlPolicy":
+    def safe_default(cls) -> ControlPolicy:
         return cls(
             require_confirmation_for_risk={"high"},
             require_confirmation_for_actions={
@@ -36,4 +36,7 @@ class ControlPolicy:
     def requires_confirmation(self, *, action: str, risk: RiskLevel = "low") -> bool:
         if action in self.allow_auto_for_actions:
             return False
-        return action in self.require_confirmation_for_actions or risk in self.require_confirmation_for_risk
+        return (
+            action in self.require_confirmation_for_actions
+            or risk in self.require_confirmation_for_risk
+        )

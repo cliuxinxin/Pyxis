@@ -46,6 +46,41 @@ result = session.navigate("帮我规划一个竞品研究流程")
 print(result.output)
 ```
 
+## OpenAI-Compatible Provider
+
+Pyxis 可以连接兼容 OpenAI Chat Completions 协议的接口，不强制依赖某个 SDK。
+
+推荐通过环境变量配置：
+
+```bash
+export OPENAI_BASE_URL="https://ark.cn-beijing.volces.com/api/coding/v3"
+export OPENAI_API_KEY="..."
+export OPENAI_MODEL="your-model"
+```
+
+然后这样使用：
+
+```python
+import os
+
+from pyxis import Agent, OpenAICompatibleProvider, Pyxis
+
+provider = OpenAICompatibleProvider(
+    model=os.environ["OPENAI_MODEL"],
+)
+
+agent = Agent(
+    name="navigator",
+    instructions="Help the user move through work calmly and clearly.",
+    provider=provider,
+)
+
+result = Pyxis(agent=agent).navigate("帮我规划一个竞品研究流程")
+print(result.output)
+```
+
+真实 key 不要提交到仓库。仓库里只保留 `.env.example` 作为配置示例。
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

@@ -31,7 +31,11 @@ class Session:
         self.events.emit("UserMessageReceived", content=user_input)
 
         decision = self.compass.decide(user_input, requires_confirmation=requires_confirmation)
-        self.events.emit("CompassDecisionMade", decision=decision.type.value, reason=decision.reason)
+        self.events.emit(
+            "CompassDecisionMade",
+            decision=decision.type.value,
+            reason=decision.reason,
+        )
 
         if decision.type == CompassDecisionType.ASK_CLARIFICATION:
             output = decision.prompt or "Can you clarify what you want to do next?"
@@ -58,7 +62,13 @@ class Session:
         self.events.emit("AgentResponded", content=output)
         return NavigationResult(output=output, decision=decision.type.value)
 
-    def checkpoint(self, *, reason: str, action: str, payload: dict[str, Any] | None = None) -> Checkpoint:
+    def checkpoint(
+        self,
+        *,
+        reason: str,
+        action: str,
+        payload: dict[str, Any] | None = None,
+    ) -> Checkpoint:
         checkpoint = Checkpoint(reason=reason, action=action, payload=payload or {})
         self.checkpoints.append(checkpoint)
         self.events.emit(

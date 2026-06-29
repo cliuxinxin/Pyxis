@@ -15,3 +15,11 @@ class CheckpointRejected(PyxisError):
 
 class ToolExecutionError(PyxisError):
     """Raised when a tool fails during execution."""
+
+
+class ProviderConfigurationError(PyxisError):
+    """Raised when a provider is missing required configuration."""
+
+
+class ProviderRequestError(PyxisError):
+    """Raised when a provider request fails."""

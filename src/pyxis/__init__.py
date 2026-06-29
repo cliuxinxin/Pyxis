@@ -6,7 +6,7 @@ from pyxis.compass import Compass, CompassDecision, CompassDecisionType
 from pyxis.events import Event, EventLog
 from pyxis.memory import InMemory, Memory, NoMemory
 from pyxis.policy import ControlPolicy
-from pyxis.providers import MockProvider, Provider
+from pyxis.providers import MockProvider, OpenAICompatibleProvider, Provider
 from pyxis.pyxis import Pyxis
 from pyxis.results import AgentResult, NavigationResult, ToolResult, WorkflowResult
 from pyxis.session import Session
@@ -29,6 +29,7 @@ __all__ = [
     "MockProvider",
     "NavigationResult",
     "NoMemory",
+    "OpenAICompatibleProvider",
     "Provider",
     "Pyxis",
     "Session",

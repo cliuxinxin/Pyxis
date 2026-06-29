@@ -59,6 +59,42 @@ result = px.navigate("Plan a simple research workflow")
 print(result.output)
 ```
 
+## OpenAI-Compatible Providers
+
+Pyxis can call OpenAI-compatible chat completions APIs without requiring an SDK.
+
+Configure credentials through environment variables:
+
+```bash
+export OPENAI_BASE_URL="https://ark.cn-beijing.volces.com/api/coding/v3"
+export OPENAI_API_KEY="..."
+export OPENAI_MODEL="your-model"
+```
+
+Then use `OpenAICompatibleProvider`:
+
+```python
+import os
+
+from pyxis import Agent, OpenAICompatibleProvider, Pyxis
+
+provider = OpenAICompatibleProvider(
+    model=os.environ["OPENAI_MODEL"],
+)
+
+agent = Agent(
+    name="navigator",
+    instructions="Help the user move through work calmly and clearly.",
+    provider=provider,
+)
+
+result = Pyxis(agent=agent).navigate("Plan a simple research workflow")
+print(result.output)
+```
+
+You can also pass `base_url` and `api_key` directly when embedding Pyxis in
+another application. Avoid committing real keys to the repository.
+
 ## Session First
 
 Pyxis favors `Session.navigate()` over a bare `Agent.run()` call.

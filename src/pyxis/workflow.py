@@ -24,7 +24,7 @@ class Workflow:
     name: str
     steps: list[WorkflowStep] = field(default_factory=list)
 
-    def step(self, name: str, fn: Callable[[Any], Any]) -> "Workflow":
+    def step(self, name: str, fn: Callable[[Any], Any]) -> Workflow:
         self.steps.append(WorkflowStep(name=name, fn=fn))
         return self
 

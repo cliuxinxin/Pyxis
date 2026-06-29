@@ -28,7 +28,11 @@ class Tool:
             output = self.fn(*args, **kwargs)
         except Exception as exc:  # pragma: no cover - exact exception is user code.
             raise ToolExecutionError(f"Tool {self.name!r} failed: {exc}") from exc
-        return ToolResult(name=self.name, output=output, metadata={"risk": self.risk, **self.metadata})
+        return ToolResult(
+            name=self.name,
+            output=output,
+            metadata={"risk": self.risk, **self.metadata},
+        )
 
 
 def tool(
