@@ -11,5 +11,11 @@ def test_tool_decorator_wraps_callable() -> None:
 
     assert summarize.name == "summarize"
     assert summarize.description == "Summarize text."
+    assert summarize.parameter_schema() == {
+        "text": {
+            "type": "str",
+            "required": True,
+        }
+    }
     assert result.output == "pyxi"
     assert result.metadata["risk"] == "medium"

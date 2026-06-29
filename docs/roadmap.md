@@ -17,7 +17,7 @@ workflows.
 ## Near-Term
 
 - Streaming provider responses and session events.
-- Stronger tool argument schema support.
+- Stronger tool argument validation beyond the current signature-derived schema.
 - Retry and timeout policy for providers and tools.
 - More detailed workflow step events.
 - Snapshot redaction hooks for sensitive payloads.

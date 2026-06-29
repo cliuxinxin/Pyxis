@@ -204,7 +204,7 @@ print(result.output)
 
 当 Agent 挂载了工具时，Pyxis 会自动把工具清单和 action 协议注入到 provider
 instructions 里。开发者只需要定义一次工具，Agent 会收到工具的 name、description、
-risk 和 action 元信息。
+risk、action 元信息，以及从函数签名推导出的参数 schema。
 
 ## 可暂停 Workflow
 

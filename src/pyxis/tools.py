@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
@@ -9,6 +10,7 @@ from typing import Any
 
 from pyxis.errors import ToolExecutionError
 from pyxis.results import ToolResult
+from pyxis.serialization import to_jsonable
 from pyxis.types import JsonDict, RiskLevel
 
 
@@ -51,7 +53,31 @@ class Tool:
             "description": self.description,
             "risk": self.risk,
             "action": self.action or "tool_call",
+            "parameters": self.parameter_schema(),
         }
+
+    def parameter_schema(self) -> JsonDict:
+        """Return a simple schema derived from the callable signature."""
+
+        signature = inspect.signature(self.fn)
+        parameters: dict[str, JsonDict] = {}
+
+        for name, parameter in signature.parameters.items():
+            if parameter.kind in {
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            }:
+                continue
+
+            entry: JsonDict = {
+                "type": _annotation_name(parameter.annotation),
+                "required": parameter.default is inspect.Parameter.empty,
+            }
+            if parameter.default is not inspect.Parameter.empty:
+                entry["default"] = to_jsonable(parameter.default)
+            parameters[name] = entry
+
+        return parameters
 
     def __call__(self, *args: Any, **kwargs: Any) -> ToolResult:
         try:
@@ -95,3 +121,15 @@ def tool(
         return fn(*args, **kwargs)
 
     return decorate(wrapper)
+
+
+def _annotation_name(annotation: Any) -> str:
+    if annotation is inspect.Signature.empty:
+        return "Any"
+    if isinstance(annotation, str):
+        return annotation
+    if getattr(annotation, "__module__", "") == "builtins":
+        return getattr(annotation, "__name__", repr(annotation))
+
+    text = str(annotation)
+    return text.replace("typing.", "")

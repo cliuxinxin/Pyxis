@@ -98,9 +98,15 @@ def build_action_instructions(tool_manifests: list[JsonDict]) -> str:
         description = manifest.get("description") or "No description provided."
         action = manifest.get("action") or "tool_call"
         risk = manifest.get("risk") or "low"
+        parameters = json.dumps(
+            manifest.get("parameters") or {},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
         lines.append(
             f"- {manifest['name']}: {description} "
-            f"(risk={risk}, action={action})"
+            f"(risk={risk}, action={action}, parameters={parameters})"
         )
 
     lines.extend(

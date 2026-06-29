@@ -292,7 +292,8 @@ If the response is not valid action JSON, Pyxis treats it as a normal message.
 
 When an agent has tools, Pyxis automatically adds a compact tool manifest and
 the action protocol to the provider instructions. Developers define tools once;
-the agent receives their name, description, risk, and action metadata.
+the agent receives their name, description, risk, action metadata, and parameter
+schema derived from the function signature.
 
 ## Workflows
 
