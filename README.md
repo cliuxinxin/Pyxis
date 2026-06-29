@@ -95,6 +95,26 @@ print(result.output)
 You can also pass `base_url` and `api_key` directly when embedding Pyxis in
 another application. Avoid committing real keys to the repository.
 
+### Live Smoke Test
+
+Create a local env file from the example:
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env.local`. The file is ignored
+by git.
+
+Then run:
+
+```bash
+PYTHONPATH=src python3 examples/basic_openai_compatible.py
+```
+
+The example reads `.env.local`, calls the configured OpenAI-compatible provider,
+and prints the agent response.
+
 ## Session First
 
 Pyxis favors `Session.navigate()` over a bare `Agent.run()` call.

@@ -81,6 +81,26 @@ print(result.output)
 
 真实 key 不要提交到仓库。仓库里只保留 `.env.example` 作为配置示例。
 
+### Live Smoke Test
+
+先复制一份本地环境变量文件：
+
+```bash
+cp .env.example .env.local
+```
+
+然后在 `.env.local` 里填入 `OPENAI_API_KEY` 和 `OPENAI_MODEL`。这个文件已经被
+git 忽略，不会被提交。
+
+运行示例：
+
+```bash
+PYTHONPATH=src python3 examples/basic_openai_compatible.py
+```
+
+示例会读取 `.env.local`，调用配置好的 OpenAI-compatible provider，并打印 Agent
+返回结果。
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：
