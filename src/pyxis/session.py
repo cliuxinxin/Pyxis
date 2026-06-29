@@ -18,6 +18,16 @@ from pyxis.tools import ToolCall
 from pyxis.workflow import Workflow
 
 
+@dataclass(frozen=True)
+class PendingWorkflow:
+    """A workflow paused at a checkpoint."""
+
+    workflow: Workflow
+    state: Any
+    next_step: int
+    completed_steps: list[str]
+
+
 @dataclass
 class Session:
     """A human-agent working context."""
@@ -29,6 +39,7 @@ class Session:
     events: EventLog = field(default_factory=EventLog)
     checkpoints: list[Checkpoint] = field(default_factory=list)
     pending_tool_calls: dict[str, ToolCall] = field(default_factory=dict)
+    pending_workflows: dict[str, PendingWorkflow] = field(default_factory=dict)
 
     def navigate(self, user_input: str, *, requires_confirmation: bool = False) -> NavigationResult:
         self.dialogue.add("user", user_input)
@@ -199,6 +210,39 @@ class Session:
         del self.pending_tool_calls[checkpoint.id]
         return result
 
+    def resume_workflow(self, checkpoint_id: str) -> WorkflowResult:
+        checkpoint = self.get_checkpoint(checkpoint_id)
+        if checkpoint.status == CheckpointStatus.REJECTED:
+            raise CheckpointRejected(f"Checkpoint {checkpoint_id!r} was rejected.")
+        if checkpoint.status != CheckpointStatus.APPROVED:
+            raise CheckpointNotApproved(f"Checkpoint {checkpoint_id!r} is not approved.")
+
+        pending = self.pending_workflows.get(checkpoint.id)
+        if pending is None:
+            raise CheckpointNotFound(
+                f"Checkpoint {checkpoint_id!r} does not have a pending workflow."
+            )
+
+        self.events.emit(
+            "WorkflowResumed",
+            workflow=pending.workflow.name,
+            checkpoint_id=checkpoint.id,
+        )
+        result = self._run_workflow(
+            pending.workflow,
+            pending.state,
+            start_at=pending.next_step,
+            completed=pending.completed_steps,
+        )
+        if not result.paused:
+            self.events.emit(
+                "WorkflowCompleted",
+                workflow=pending.workflow.name,
+                steps=result.steps,
+            )
+        del self.pending_workflows[checkpoint.id]
+        return result
+
     def get_checkpoint(self, checkpoint_id: str) -> Checkpoint:
         for checkpoint in self.checkpoints:
             if checkpoint.id == checkpoint_id:
@@ -207,6 +251,51 @@ class Session:
 
     def run(self, workflow: Workflow, value: Any) -> WorkflowResult:
         self.events.emit("WorkflowStarted", workflow=workflow.name)
-        result = workflow.run(value)
-        self.events.emit("WorkflowCompleted", workflow=workflow.name, steps=result.steps)
+        result = self._run_workflow(workflow, value)
+        if not result.paused:
+            self.events.emit("WorkflowCompleted", workflow=workflow.name, steps=result.steps)
+        return result
+
+    def _run_workflow(
+        self,
+        workflow: Workflow,
+        value: Any,
+        *,
+        start_at: int = 0,
+        completed: list[str] | None = None,
+    ) -> WorkflowResult:
+        result = workflow.run(value, start_at=start_at, completed=completed)
+        if result.paused:
+            checkpoint = self.checkpoint(
+                reason=str(result.metadata.get("reason") or "Workflow checkpoint."),
+                action="workflow_checkpoint",
+                payload={
+                    "kind": "workflow",
+                    "workflow": workflow.name,
+                    "step": result.metadata.get("step"),
+                    "current_step": result.current_step,
+                },
+            )
+            self.pending_workflows[checkpoint.id] = PendingWorkflow(
+                workflow=workflow,
+                state=result.state,
+                next_step=(result.current_step or 0) + 1,
+                completed_steps=result.steps,
+            )
+            self.events.emit(
+                "WorkflowPaused",
+                workflow=workflow.name,
+                checkpoint_id=checkpoint.id,
+            )
+            return WorkflowResult(
+                name=result.name,
+                output=result.output,
+                steps=result.steps,
+                paused=True,
+                checkpoint=checkpoint,
+                current_step=result.current_step,
+                state=result.state,
+                metadata=result.metadata,
+            )
+
         return result

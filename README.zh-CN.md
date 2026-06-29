@@ -183,6 +183,31 @@ print(result.output)
 instructions 里。开发者只需要定义一次工具，Agent 会收到工具的 name、description、
 risk 和 action 元信息。
 
+## 可暂停 Workflow
+
+Workflow 通过 `Session` 执行时，可以在 checkpoint step 暂停，等待确认后继续：
+
+```python
+from pyxis import Agent, Pyxis, Workflow
+
+workflow = (
+    Workflow("draft")
+    .step("clean", lambda text: text.strip())
+    .checkpoint("Review cleaned text before writing the report.")
+    .step("report", lambda text: f"Report: {text}")
+)
+
+session = Pyxis(agent=Agent(name="navigator")).session()
+result = session.run(workflow, "  Pyxis keeps work controllable.  ")
+
+if result.paused:
+    checkpoint = result.checkpoint
+    session.approve_checkpoint(checkpoint.id)
+    result = session.resume_workflow(checkpoint.id)
+
+print(result.output)
+```
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

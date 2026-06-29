@@ -35,6 +35,10 @@ class WorkflowResult:
     name: str
     output: Any
     steps: list[str] = field(default_factory=list)
+    paused: bool = False
+    checkpoint: Checkpoint | None = None
+    current_step: int | None = None
+    state: Any = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

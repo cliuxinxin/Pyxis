@@ -251,6 +251,29 @@ result = workflow.run("  Pyxis helps agents navigate work.  ")
 print(result.output)
 ```
 
+Workflows can also pause at human checkpoints when they run through a session:
+
+```python
+from pyxis import Agent, Pyxis, Workflow
+
+workflow = (
+    Workflow("draft")
+    .step("clean", lambda text: text.strip())
+    .checkpoint("Review cleaned text before writing the report.")
+    .step("report", lambda text: f"Report: {text}")
+)
+
+session = Pyxis(agent=Agent(name="navigator")).session()
+result = session.run(workflow, "  Pyxis keeps work controllable.  ")
+
+if result.paused:
+    checkpoint = result.checkpoint
+    session.approve_checkpoint(checkpoint.id)
+    result = session.resume_workflow(checkpoint.id)
+
+print(result.output)
+```
+
 ## Design Direction
 
 Pyxis is intentionally small at the center:
