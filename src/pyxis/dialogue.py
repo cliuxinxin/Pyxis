@@ -15,6 +15,12 @@ class Message:
     role: Role
     content: str
 
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "role": self.role,
+            "content": self.content,
+        }
+
 
 @dataclass
 class Dialogue:
@@ -37,3 +43,11 @@ class Dialogue:
             if message.role == "user":
                 return message.content
         return None
+
+    def to_dict(self) -> dict:
+        return {
+            "messages": [message.to_dict() for message in self.messages],
+            "user_goal": self.user_goal,
+            "open_questions": list(self.open_questions),
+            "confirmations": list(self.confirmations),
+        }

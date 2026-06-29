@@ -14,6 +14,7 @@ from pyxis.errors import CheckpointNotApproved, CheckpointNotFound, CheckpointRe
 from pyxis.events import EventLog
 from pyxis.policy import ControlPolicy
 from pyxis.results import NavigationResult, ToolResult, WorkflowResult
+from pyxis.serialization import to_jsonable
 from pyxis.tools import ToolCall
 from pyxis.workflow import Workflow
 
@@ -26,6 +27,14 @@ class PendingWorkflow:
     state: Any
     next_step: int
     completed_steps: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "workflow": self.workflow.name,
+            "state": to_jsonable(self.state),
+            "next_step": self.next_step,
+            "completed_steps": list(self.completed_steps),
+        }
 
 
 @dataclass
@@ -248,6 +257,27 @@ class Session:
             if checkpoint.id == checkpoint_id:
                 return checkpoint
         raise CheckpointNotFound(f"Checkpoint {checkpoint_id!r} was not found.")
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a JSON-safe audit snapshot of the session."""
+
+        return {
+            "agent": {
+                "name": self.agent.name,
+                "tools": self.agent.tool_manifest(),
+            },
+            "dialogue": self.dialogue.to_dict(),
+            "events": self.events.to_list(),
+            "checkpoints": [checkpoint.to_dict() for checkpoint in self.checkpoints],
+            "pending_tool_calls": {
+                checkpoint_id: call.to_dict()
+                for checkpoint_id, call in self.pending_tool_calls.items()
+            },
+            "pending_workflows": {
+                checkpoint_id: pending.to_dict()
+                for checkpoint_id, pending in self.pending_workflows.items()
+            },
+        }
 
     def run(self, workflow: Workflow, value: Any) -> WorkflowResult:
         self.events.emit("WorkflowStarted", workflow=workflow.name)

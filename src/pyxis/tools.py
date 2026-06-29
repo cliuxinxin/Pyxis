@@ -22,6 +22,15 @@ class ToolCall:
     risk: RiskLevel = "low"
     action: str = "tool_call"
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "args": list(self.args),
+            "kwargs": self.kwargs,
+            "risk": self.risk,
+            "action": self.action,
+        }
+
 
 @dataclass(frozen=True)
 class Tool:

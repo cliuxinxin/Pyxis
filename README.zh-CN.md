@@ -208,6 +208,21 @@ if result.paused:
 print(result.output)
 ```
 
+## Session Snapshot
+
+Session 可以导出 JSON-safe snapshot，用于检查和审计：
+
+```python
+snapshot = session.snapshot()
+
+print(snapshot["dialogue"])
+print(snapshot["events"])
+print(snapshot["checkpoints"])
+```
+
+Snapshot 包含 dialogue、events、checkpoints、pending tool calls 和 pending
+workflows。第一版先用于 inspection 和 audit trail，完整持久化恢复可以后续再加。
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

@@ -59,6 +59,22 @@ result = px.navigate("Plan a simple research workflow")
 print(result.output)
 ```
 
+## Session Snapshots
+
+Sessions expose a JSON-safe snapshot for inspection and audit trails:
+
+```python
+snapshot = session.snapshot()
+
+print(snapshot["dialogue"])
+print(snapshot["events"])
+print(snapshot["checkpoints"])
+```
+
+Snapshots include dialogue, events, checkpoints, pending tool calls, and pending
+workflows. They are intended for inspection first; full persistence and
+callable restoration can be layered on later.
+
 ## OpenAI-Compatible Providers
 
 Pyxis can call OpenAI-compatible chat completions APIs without requiring an SDK.

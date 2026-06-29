@@ -7,6 +7,8 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
+from pyxis.serialization import to_jsonable
+
 
 class CheckpointStatus(str, Enum):
     """Checkpoint lifecycle states."""
@@ -35,3 +37,12 @@ class Checkpoint:
     @property
     def approved(self) -> bool:
         return self.status == CheckpointStatus.APPROVED
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "reason": self.reason,
+            "action": self.action,
+            "status": self.status.value,
+            "payload": to_jsonable(self.payload),
+        }
