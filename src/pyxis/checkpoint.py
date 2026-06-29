@@ -25,6 +25,10 @@ class Checkpoint:
     reason: str
     action: str
     payload: dict[str, Any] = field(default_factory=dict)
+    summary: str | None = None
+    risk_reason: str | None = None
+    preview: str | None = None
+    options: list[str] = field(default_factory=lambda: ["approve", "reject"])
     id: str = field(default_factory=lambda: str(uuid4()))
     status: CheckpointStatus = CheckpointStatus.PENDING
 
@@ -43,6 +47,10 @@ class Checkpoint:
             "id": self.id,
             "reason": self.reason,
             "action": self.action,
+            "summary": self.summary,
+            "risk_reason": self.risk_reason,
+            "preview": self.preview,
+            "options": list(self.options),
             "status": self.status.value,
             "payload": to_jsonable(self.payload),
         }

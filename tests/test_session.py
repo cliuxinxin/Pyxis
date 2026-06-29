@@ -32,7 +32,17 @@ def test_checkpoint_can_be_approved() -> None:
     agent = Agent(name="navigator")
     session = Pyxis(agent=agent).session()
 
-    checkpoint = session.checkpoint(reason="About to act", action="shell_exec")
+    checkpoint = session.checkpoint(
+        reason="About to act",
+        action="shell_exec",
+        summary="Pyxis wants to run a shell command.",
+        risk_reason="This may execute local commands.",
+        preview="echo hi",
+    )
     checkpoint.approve()
 
     assert checkpoint.approved
+    assert checkpoint.to_dict()["summary"] == "Pyxis wants to run a shell command."
+    assert checkpoint.to_dict()["risk_reason"] == "This may execute local commands."
+    assert checkpoint.to_dict()["preview"] == "echo hi"
+    assert checkpoint.to_dict()["options"] == ["approve", "reject"]

@@ -36,6 +36,10 @@ def test_high_risk_tool_pauses_with_checkpoint() -> None:
     assert result.checkpoint is not None
     assert result.checkpoint.status == CheckpointStatus.PENDING
     assert result.checkpoint.payload["tool"] == "write_file"
+    assert result.checkpoint.summary == "Pyxis wants to run tool 'write_file'."
+    assert result.checkpoint.risk_reason == "This is a high-risk file_write action."
+    assert result.checkpoint.preview == "write_file('demo.txt')"
+    assert result.checkpoint.options == ["approve", "reject"]
     assert calls == []
 
 

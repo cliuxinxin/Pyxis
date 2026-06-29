@@ -81,6 +81,9 @@ class Session:
                 reason=decision.reason,
                 action="navigation",
                 payload={"input": user_input},
+                summary="Pyxis needs confirmation before continuing this navigation step.",
+                risk_reason=decision.reason,
+                preview=user_input,
             )
             output = f"Confirmation required before continuing: {checkpoint.reason}"
         elif decision.type == CompassDecisionType.PROPOSE_PLAN:
@@ -181,8 +184,20 @@ class Session:
         reason: str,
         action: str,
         payload: dict[str, Any] | None = None,
+        summary: str | None = None,
+        risk_reason: str | None = None,
+        preview: str | None = None,
+        options: list[str] | None = None,
     ) -> Checkpoint:
-        checkpoint = Checkpoint(reason=reason, action=action, payload=payload or {})
+        checkpoint = Checkpoint(
+            reason=reason,
+            action=action,
+            payload=payload or {},
+            summary=summary,
+            risk_reason=risk_reason,
+            preview=preview,
+            options=options or ["approve", "reject"],
+        )
         self.checkpoints.append(checkpoint)
         self.events.emit(
             "CheckpointCreated",
@@ -223,6 +238,9 @@ class Session:
                     "kwargs": call.kwargs,
                     "risk": call.risk,
                 },
+                summary=f"Pyxis wants to run tool {call.name!r}.",
+                risk_reason=f"This is a {call.risk}-risk {call.action} action.",
+                preview=self._preview_tool_call(call),
             )
             self.pending_tool_calls[checkpoint.id] = call
             self.events.emit(
@@ -370,6 +388,9 @@ class Session:
                     "step": result.metadata.get("step"),
                     "current_step": result.current_step,
                 },
+                summary=f"Workflow {workflow.name!r} paused for confirmation.",
+                risk_reason=str(result.metadata.get("reason") or "Workflow checkpoint."),
+                preview=str(result.metadata.get("step") or "checkpoint"),
             )
             self.pending_workflows[checkpoint.id] = PendingWorkflow(
                 workflow=workflow,
@@ -394,3 +415,14 @@ class Session:
             )
 
         return result
+
+    def _preview_tool_call(self, call: ToolCall) -> str:
+        arguments: list[str] = []
+        if call.args:
+            arguments.extend(repr(arg) for arg in call.args[:3])
+        if call.kwargs:
+            kwargs = list(call.kwargs.items())[:3]
+            arguments.extend(f"{key}={value!r}" for key, value in kwargs)
+        if not arguments:
+            return call.name
+        return f"{call.name}({', '.join(arguments)})"

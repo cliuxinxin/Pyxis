@@ -118,7 +118,7 @@ def _maybe_handle_checkpoint(
 
     approve = args.approve
     if not approve:
-        answer = input(f"Approve checkpoint {checkpoint.id}? [y/N] ").strip().lower()
+        answer = input(_format_checkpoint_prompt(checkpoint)).strip().lower()
         approve = answer in {"y", "yes"}
 
     if not approve:
@@ -128,6 +128,33 @@ def _maybe_handle_checkpoint(
     session.approve_checkpoint(checkpoint.id)
     resumed = session.resume_checkpoint(checkpoint.id)
     print(resumed.output)
+
+
+def _format_checkpoint_prompt(checkpoint) -> str:
+    summary = getattr(
+        checkpoint,
+        "summary",
+        None,
+    ) or "Pyxis wants to run an action that needs your approval."
+    action = getattr(checkpoint, "action", "unknown")
+    reason = getattr(checkpoint, "risk_reason", None) or getattr(
+        checkpoint,
+        "reason",
+        "This action requires confirmation.",
+    )
+    preview = getattr(checkpoint, "preview", None)
+
+    lines = [
+        "",
+        summary,
+        "",
+        f"Action: {action}",
+        f"Reason: {reason}",
+    ]
+    if preview:
+        lines.append(f"Preview: {preview}")
+    lines.extend(["", f"Checkpoint: {checkpoint.id}", "", "Approve? [y/N] "])
+    return "\n".join(lines)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

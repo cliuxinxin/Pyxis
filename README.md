@@ -104,6 +104,18 @@ Approve a checkpoint produced by a run:
 pyxis run "..." --approve
 ```
 
+When approval is not automatic, the CLI shows a consent-oriented prompt:
+
+```text
+Pyxis wants to run a high-risk action.
+
+Action: file_write
+Reason: This may modify local files.
+Preview: notes.txt
+
+Approve? [y/N]
+```
+
 ## Session Snapshots
 
 Sessions expose a JSON-safe snapshot for inspection and audit trails:
@@ -294,6 +306,15 @@ print(result.output)
 
 High-risk tools pause before execution. The pending call is resumed only after
 the checkpoint is approved.
+
+Checkpoints carry user-facing consent details:
+
+```python
+print(checkpoint.summary)
+print(checkpoint.risk_reason)
+print(checkpoint.preview)
+print(checkpoint.options)
+```
 
 ## Agent Tool-Call Protocol
 

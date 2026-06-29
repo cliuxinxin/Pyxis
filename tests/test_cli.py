@@ -135,9 +135,22 @@ def test_run_can_leave_checkpoint_pending(monkeypatch, capsys) -> None:
     monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost")
     monkeypatch.setenv("OPENAI_API_KEY", "secret-value")
     monkeypatch.setenv("OPENAI_MODEL", "test-model")
-    monkeypatch.setattr("builtins.input", lambda prompt: "n")
+    seen_prompt = {}
 
-    checkpoint = SimpleNamespace(id="checkpoint-1")
+    def fake_input(prompt: str) -> str:
+        seen_prompt["prompt"] = prompt
+        return "n"
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    checkpoint = SimpleNamespace(
+        id="checkpoint-1",
+        action="file_write",
+        reason="Tool 'write_file' requires confirmation before execution.",
+        summary="Pyxis wants to run a high-risk action.",
+        risk_reason="This may modify local files.",
+        preview="notes.txt",
+    )
     tool_result = SimpleNamespace(
         name="write_file",
         output=None,
@@ -172,3 +185,19 @@ def test_run_can_leave_checkpoint_pending(monkeypatch, capsys) -> None:
     captured = capsys.readouterr()
     assert code == 0
     assert "Checkpoint left pending: checkpoint-1" in captured.out
+    assert "Pyxis wants to run a high-risk action." in seen_prompt["prompt"]
+    assert "Action: file_write" in seen_prompt["prompt"]
+    assert "Reason: This may modify local files." in seen_prompt["prompt"]
+    assert "Preview: notes.txt" in seen_prompt["prompt"]
+    assert "Approve? [y/N]" in seen_prompt["prompt"]
+
+
+def test_checkpoint_prompt_has_safe_fallbacks() -> None:
+    checkpoint = SimpleNamespace(id="checkpoint-1")
+
+    prompt = cli._format_checkpoint_prompt(checkpoint)
+
+    assert "Pyxis wants to run an action that needs your approval." in prompt
+    assert "Action: unknown" in prompt
+    assert "Reason: This action requires confirmation." in prompt
+    assert "Checkpoint: checkpoint-1" in prompt
