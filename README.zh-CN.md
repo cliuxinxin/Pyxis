@@ -45,6 +45,22 @@ Pyxis 的核心不是 `Agent.run()`，而是 `Session.navigate()`。
 - [Tool Authoring Guide](docs/guides/tool-authoring.md)：工具编写和参数校验指南。
 - [Migration Guide](docs/guides/migration.md)：从早期 MVP 迁移到 1.0 契约。
 
+## 安装
+
+从 PyPI 安装：
+
+```bash
+pip install pyxis-ai
+```
+
+从当前仓库进行本地开发：
+
+```bash
+pip install -e ".[dev]"
+```
+
+Pyxis 不强制依赖任何模型 SDK。
+
 ## 快速开始
 
 ```python
@@ -329,9 +345,9 @@ session.save_snapshot("session-audit.json", redact=True, redaction_policy=policy
 
 ## 当前状态
 
-Pyxis 正在准备 `1.0.0` release line。1.0 契约聚焦稳定公共 API、可控工具、
-可恢复 snapshot、provider streaming、policy/consent 语义、事件可观测性、CLI
-工作流，以及中英文文档同步。
+Pyxis `1.0.0` 是核心 harness 的稳定 1.x 契约，覆盖公共 API、可控工具、可恢复
+snapshot、provider streaming、policy/consent 语义、事件可观测性、CLI 工作流，
+以及中英文文档同步。
 
 长期持久化存储、多 Agent 协作和更多 provider adapter 可以在 1.x 继续扩展，但不会
 进入核心 harness 的强依赖。

@@ -32,16 +32,16 @@ under human control.
 
 ## Install
 
-From this repository:
-
-```bash
-pip install -e ".[dev]"
-```
-
-When published as a package:
+From PyPI:
 
 ```bash
 pip install pyxis-ai
+```
+
+For local development from this repository:
+
+```bash
+pip install -e ".[dev]"
 ```
 
 Pyxis has no required model SDK dependency.
@@ -298,7 +298,6 @@ actions, resumable state, and enough structure for people to stay oriented.
 
 ## Status
 
-Pyxis is preparing the `1.0.0` release line. The 1.0 contract focuses on a
-stable public API, controlled tools, restorable snapshots, provider streaming,
-policy/consent semantics, event observability, CLI workflows, and synchronized
-documentation.
+Pyxis `1.0.0` is the stable 1.x contract for the core harness: public API,
+controlled tools, restorable snapshots, provider streaming, policy/consent
+semantics, event observability, CLI workflows, and synchronized documentation.
