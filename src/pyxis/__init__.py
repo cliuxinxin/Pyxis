@@ -27,7 +27,14 @@ from pyxis.errors import (
     ToolNotFound,
     ToolValidationError,
 )
-from pyxis.events import Event, EventLog
+from pyxis.events import (
+    EVENT_SCHEMA_VERSION,
+    EVENT_SCHEMAS,
+    Event,
+    EventLog,
+    EventSchema,
+    EventType,
+)
 from pyxis.memory import (
     InMemory,
     Memory,
@@ -75,8 +82,12 @@ __all__ = [
     "CompassDecisionType",
     "ControlPolicy",
     "Dialogue",
+    "EVENT_SCHEMAS",
+    "EVENT_SCHEMA_VERSION",
     "Event",
     "EventLog",
+    "EventSchema",
+    "EventType",
     "InMemory",
     "Intent",
     "IntentType",

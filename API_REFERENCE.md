@@ -150,6 +150,28 @@ Stable fields:
 effective risk used by the policy decision. `checkpoint_options` are copied into
 created checkpoints.
 
+### `Event`
+
+Observable session event.
+
+Stable surface:
+
+- `Event(type, payload=..., id=..., created_at=..., schema_version=...)`
+- `Event.to_dict() -> dict`
+- `EventLog.emit(event_type, **payload) -> Event`
+- `EventLog.append(event) -> None`
+- `EventLog.all() -> list[Event]`
+- `EventLog.to_list() -> list[dict]`
+- `EventType`
+- `EventSchema`
+- `EVENT_SCHEMAS`
+- `EVENT_SCHEMA_VERSION`
+
+Known Pyxis events validate required payload keys through `EventLog.emit()`.
+Unknown event names are allowed for host application events. Stable event
+families cover provider, tool, checkpoint, policy, workflow, dialogue, and
+snapshot restore behavior.
+
 ### `Memory`
 
 Minimal memory protocol and bounded session memory.

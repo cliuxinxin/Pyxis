@@ -155,6 +155,17 @@ def test_restore_session_can_resume_pending_tool_call() -> None:
     assert paused.checkpoint.id not in restored.pending_tool_calls
 
 
+def test_restore_session_preserves_event_schema_version() -> None:
+    session = Pyxis(agent=Agent(name="navigator", provider=MockProvider(output="hello"))).session()
+    session.navigate("hello")
+    snapshot = session.snapshot()
+    snapshot["events"][0]["schema_version"] = 7
+
+    restored = restore_session(snapshot, catalog=SnapshotRestoreCatalog())
+
+    assert restored.events.all()[0].schema_version == 7
+
+
 def test_restore_session_can_resume_pending_workflow() -> None:
     workflow = (
         Workflow("draft")

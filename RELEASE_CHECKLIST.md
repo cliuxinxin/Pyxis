@@ -56,6 +56,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `CancellationToken`
 - `CompletionRequest` / `CompletionResult` / `CompletionChunk`
 - `ControlPolicy` / `ApprovalMode` / `PolicyDecision`
+- `Event` / `EventLog` / `EventType` / `EventSchema` / `EVENT_SCHEMAS`
 - `Intent` / `UserGoal` / `Clarification`
 - `SessionMemory` / `UserPreferences` / `ProjectContext`
 - `Tool` / `tool`
@@ -79,6 +80,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
 - `docs/concepts/` contains session, checkpoint, tool action, and workflow docs.
 - `docs/concepts/providers.md` documents provider contracts.
+- `docs/concepts/events.md` documents event schemas and observability contracts.
 - `docs/guides/safety-control.md` documents policy and consent behavior.
 - `.github/workflows/ci.yml` runs tests, lint, and build checks.
 

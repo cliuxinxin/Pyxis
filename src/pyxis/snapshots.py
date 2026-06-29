@@ -11,7 +11,7 @@ from typing import Any
 from pyxis.checkpoint import Checkpoint, CheckpointStatus
 from pyxis.dialogue import Clarification, Dialogue, Intent, IntentType, Message, UserGoal
 from pyxis.errors import SnapshotRestoreError
-from pyxis.events import Event, EventLog
+from pyxis.events import Event, EventLog, EventType
 from pyxis.memory import Memory, ProjectContext, SessionMemory, UserPreferences
 from pyxis.providers import MockProvider, Provider
 from pyxis.tools import Tool, ToolCall
@@ -93,7 +93,7 @@ def restore_session(
         restore_catalog,
         PendingWorkflow,
     )
-    session.events.emit("SessionRestored", checkpoints=len(session.checkpoints))
+    session.events.emit(EventType.SESSION_RESTORED, checkpoints=len(session.checkpoints))
     return session
 
 
@@ -114,12 +114,17 @@ def _restore_events(value: Any) -> EventLog:
             )
         except ValueError as exc:
             raise SnapshotRestoreError(f"Event {index} has invalid created_at.") from exc
+        try:
+            schema_version = int(event.get("schema_version") or 1)
+        except (TypeError, ValueError) as exc:
+            raise SnapshotRestoreError(f"Event {index} has invalid schema_version.") from exc
         events.append(
             Event(
                 type=_require_str(event.get("type"), f"events.{index}.type"),
                 payload=_optional_dict(event.get("payload")),
                 id=_require_str(event.get("id"), f"events.{index}.id"),
                 created_at=parsed_created_at,
+                schema_version=schema_version,
             )
         )
     return events

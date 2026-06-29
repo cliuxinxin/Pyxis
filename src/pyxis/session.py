@@ -19,13 +19,13 @@ from pyxis.errors import (
     ToolNotFound,
     ToolValidationError,
 )
-from pyxis.events import EventLog
+from pyxis.events import EventLog, EventType
 from pyxis.policy import ControlPolicy
 from pyxis.results import NavigationResult, StreamEvent, ToolResult, WorkflowResult
 from pyxis.serialization import redact_jsonable, to_jsonable
 from pyxis.snapshots import save_snapshot
 from pyxis.tools import ToolCall
-from pyxis.workflow import Workflow
+from pyxis.workflow import Workflow, WorkflowStepKind
 
 
 @dataclass(frozen=True)
@@ -61,7 +61,7 @@ class Session:
 
     def navigate(self, user_input: str, *, requires_confirmation: bool = False) -> NavigationResult:
         self.dialogue.add("user", user_input)
-        self.events.emit("UserMessageReceived", content=user_input)
+        self.events.emit(EventType.USER_MESSAGE_RECEIVED, content=user_input)
 
         analysis = self.compass.analyze(
             user_input,
@@ -70,7 +70,7 @@ class Session:
         decision = analysis.decision
         self._record_analysis(analysis)
         self.events.emit(
-            "CompassDecisionMade",
+            EventType.COMPASS_DECISION_MADE,
             decision=decision.type.value,
             reason=decision.reason,
             intent=analysis.intent.type.value,
@@ -94,17 +94,20 @@ class Session:
             )
             output = f"Confirmation required before continuing: {checkpoint.reason}"
         elif decision.type == CompassDecisionType.PROPOSE_PLAN:
-            result = self.agent.run(
+            result = self._run_agent_with_events(
                 f"Propose a concise, controllable plan for this request:\n{user_input}",
                 context={"decision": decision.type.value},
             )
             output, metadata = self._handle_agent_output(result.output)
         else:
-            result = self.agent.run(user_input, context={"decision": decision.type.value})
+            result = self._run_agent_with_events(
+                user_input,
+                context={"decision": decision.type.value},
+            )
             output, metadata = self._handle_agent_output(result.output)
 
         self.dialogue.add("agent", output)
-        self.events.emit("AgentResponded", content=output)
+        self.events.emit(EventType.AGENT_RESPONDED, content=output)
         return NavigationResult(output=output, decision=decision.type.value, metadata=metadata)
 
     def _record_analysis(self, analysis: Any) -> None:
@@ -174,7 +177,7 @@ class Session:
         requires_confirmation: bool = False,
     ):
         self.dialogue.add("user", user_input)
-        self.events.emit("UserMessageReceived", content=user_input)
+        self.events.emit(EventType.USER_MESSAGE_RECEIVED, content=user_input)
 
         analysis = self.compass.analyze(
             user_input,
@@ -183,7 +186,7 @@ class Session:
         decision = analysis.decision
         self._record_analysis(analysis)
         self.events.emit(
-            "CompassDecisionMade",
+            EventType.COMPASS_DECISION_MADE,
             decision=decision.type.value,
             reason=decision.reason,
             intent=analysis.intent.type.value,
@@ -212,7 +215,10 @@ class Session:
             else:
                 prompt = user_input
             chunks: list[str] = []
-            for chunk in self.agent.stream(prompt, context={"decision": decision.type.value}):
+            for chunk in self._stream_agent_with_events(
+                prompt,
+                context={"decision": decision.type.value},
+            ):
                 if not chunk.text:
                     continue
                 chunks.append(chunk.text)
@@ -229,15 +235,91 @@ class Session:
             metadata["streamed"] = True
 
         self.dialogue.add("agent", output)
-        self.events.emit("AgentResponded", content=output)
+        self.events.emit(EventType.AGENT_RESPONDED, content=output)
         return NavigationResult(output=output, decision=decision.type.value, metadata=metadata)
 
     def _can_stream_provider(self) -> bool:
         return callable(getattr(self.agent.provider, "stream", None))
 
+    def _run_agent_with_events(self, prompt: str, *, context: dict[str, Any]):
+        provider = self._provider_name()
+        self.events.emit(
+            EventType.PROVIDER_STARTED,
+            agent=self.agent.name,
+            provider=provider,
+            mode="complete",
+        )
+        try:
+            result = self.agent.run(prompt, context=context)
+        except Exception as exc:
+            self.events.emit(
+                EventType.PROVIDER_ERROR,
+                agent=self.agent.name,
+                provider=provider,
+                mode="complete",
+                error=exc.__class__.__name__,
+                message=str(exc),
+            )
+            raise
+
+        self.events.emit(
+            EventType.PROVIDER_DONE,
+            agent=self.agent.name,
+            provider=provider,
+            mode="complete",
+            finish_reason=result.metadata.get("finish_reason"),
+        )
+        return result
+
+    def _stream_agent_with_events(self, prompt: str, *, context: dict[str, Any]):
+        provider = self._provider_name()
+        chunks = 0
+        finish_reason: str | None = None
+        usage: dict[str, Any] | None = None
+        self.events.emit(
+            EventType.PROVIDER_STARTED,
+            agent=self.agent.name,
+            provider=provider,
+            mode="stream",
+        )
+        try:
+            for chunk in self.agent.stream(prompt, context=context):
+                chunks += 1
+                if chunk.finish_reason is not None:
+                    finish_reason = chunk.finish_reason
+                if chunk.usage is not None:
+                    usage = chunk.usage
+                yield chunk
+        except Exception as exc:
+            self.events.emit(
+                EventType.PROVIDER_ERROR,
+                agent=self.agent.name,
+                provider=provider,
+                mode="stream",
+                error=exc.__class__.__name__,
+                message=str(exc),
+            )
+            raise
+
+        self.events.emit(
+            EventType.PROVIDER_DONE,
+            agent=self.agent.name,
+            provider=provider,
+            mode="stream",
+            chunks=chunks,
+            finish_reason=finish_reason,
+            usage=usage,
+        )
+
+    def _provider_name(self) -> str:
+        provider_name = getattr(self.agent.provider, "name", None)
+        if isinstance(provider_name, str):
+            return provider_name
+        return self.agent.provider.__class__.__name__
+
     def _handle_agent_output(self, output: str) -> tuple[str, dict[str, Any]]:
         action = parse_agent_action(output)
-        self.events.emit("AgentActionParsed", action=action.type.value)
+        self.events.emit(EventType.AGENT_ACTION_PARSED, action=action.type.value)
 
         if action.type == AgentActionType.TOOL_CALL:
             if action.tool is None:
@@ -287,7 +369,7 @@ class Session:
         )
         self.checkpoints.append(checkpoint)
         self.events.emit(
-            "CheckpointCreated",
+            EventType.CHECKPOINT_CREATED,
             checkpoint_id=checkpoint.id,
             reason=reason,
             action=action,
@@ -302,7 +384,7 @@ class Session:
         try:
             tool.validate_arguments(*args, **kwargs)
         except ToolValidationError as exc:
-            self.events.emit("ToolValidationFailed", tool=tool.name, error=str(exc))
+            self.events.emit(EventType.TOOL_VALIDATION_FAILED, tool=tool.name, error=str(exc))
             raise
 
         action = tool.action or "tool_call"
@@ -314,7 +396,7 @@ class Session:
             action=action,
         )
         self.events.emit(
-            "ToolCallRequested",
+            EventType.TOOL_CALL_REQUESTED,
             tool=call.name,
             action=call.action,
             risk=call.risk,
@@ -323,7 +405,7 @@ class Session:
         decision = self.policy.decide(action=call.action, risk=call.risk)
         if not decision.allowed:
             self.events.emit(
-                "PolicyDenied",
+                EventType.POLICY_DENIED,
                 tool=call.name,
                 action=call.action,
                 reason=decision.reason,
@@ -350,7 +432,7 @@ class Session:
             )
             self.pending_tool_calls[checkpoint.id] = call
             self.events.emit(
-                "ToolCallPaused",
+                EventType.TOOL_CALL_PAUSED,
                 tool=call.name,
                 checkpoint_id=checkpoint.id,
                 policy_reason=decision.reason,
@@ -368,19 +450,19 @@ class Session:
             )
 
         result = tool(*call.args, **call.kwargs)
-        self.events.emit("ToolCallCompleted", tool=call.name)
+        self.events.emit(EventType.TOOL_CALL_COMPLETED, tool=call.name)
         return result
 
     def approve_checkpoint(self, checkpoint_id: str) -> Checkpoint:
         checkpoint = self.get_checkpoint(checkpoint_id)
         checkpoint.approve()
-        self.events.emit("CheckpointApproved", checkpoint_id=checkpoint.id)
+        self.events.emit(EventType.CHECKPOINT_APPROVED, checkpoint_id=checkpoint.id)
         return checkpoint
 
     def reject_checkpoint(self, checkpoint_id: str) -> Checkpoint:
         checkpoint = self.get_checkpoint(checkpoint_id)
         checkpoint.reject()
-        self.events.emit("CheckpointRejected", checkpoint_id=checkpoint.id)
+        self.events.emit(EventType.CHECKPOINT_REJECTED, checkpoint_id=checkpoint.id)
         return checkpoint
 
     def resume_checkpoint(self, checkpoint_id: str) -> ToolResult:
@@ -400,9 +482,13 @@ class Session:
         if tool is None:
             raise ToolNotFound(f"Agent {self.agent.name!r} does not have tool {call.name!r}.")
 
-        self.events.emit("CheckpointResumed", checkpoint_id=checkpoint.id, tool=call.name)
+        self.events.emit(EventType.CHECKPOINT_RESUMED, checkpoint_id=checkpoint.id, tool=call.name)
         result = tool(*call.args, **call.kwargs)
-        self.events.emit("ToolCallCompleted", tool=call.name, checkpoint_id=checkpoint.id)
+        self.events.emit(
+            EventType.TOOL_CALL_COMPLETED,
+            tool=call.name,
+            checkpoint_id=checkpoint.id,
+        )
         del self.pending_tool_calls[checkpoint.id]
         return result
 
@@ -420,7 +506,7 @@ class Session:
             )
 
         self.events.emit(
-            "WorkflowResumed",
+            EventType.WORKFLOW_RESUMED,
             workflow=pending.workflow.name,
             checkpoint_id=checkpoint.id,
         )
@@ -432,7 +518,7 @@ class Session:
         )
         if not result.paused:
             self.events.emit(
-                "WorkflowCompleted",
+                EventType.WORKFLOW_COMPLETED,
                 workflow=pending.workflow.name,
                 steps=result.steps,
             )
@@ -482,10 +568,14 @@ class Session:
         return save_snapshot(self.snapshot(redact=redact), path)
 
     def run(self, workflow: Workflow, value: Any) -> WorkflowResult:
-        self.events.emit("WorkflowStarted", workflow=workflow.name)
+        self.events.emit(EventType.WORKFLOW_STARTED, workflow=workflow.name)
         result = self._run_workflow(workflow, value)
         if not result.paused:
-            self.events.emit("WorkflowCompleted", workflow=workflow.name, steps=result.steps)
+            self.events.emit(
+                EventType.WORKFLOW_COMPLETED,
+                workflow=workflow.name,
+                steps=result.steps,
+            )
         return result
 
     def _run_workflow(
@@ -496,7 +586,12 @@ class Session:
         start_at: int = 0,
         completed: list[str] | None = None,
     ) -> WorkflowResult:
-        result = workflow.run(value, start_at=start_at, completed=completed)
+        result = self._run_workflow_steps(
+            workflow,
+            value,
+            start_at=start_at,
+            completed=completed,
+        )
         if result.paused:
             step_kind = str(result.metadata.get("kind") or "checkpoint")
             prompt = str(result.metadata.get("prompt") or "")
@@ -524,7 +619,7 @@ class Session:
                 completed_steps=result.steps,
             )
             self.events.emit(
-                "WorkflowPaused",
+                EventType.WORKFLOW_PAUSED,
                 workflow=workflow.name,
                 checkpoint_id=checkpoint.id,
             )
@@ -540,6 +635,84 @@ class Session:
             )
 
         return result
+
+    def _run_workflow_steps(
+        self,
+        workflow: Workflow,
+        value: Any,
+        *,
+        start_at: int = 0,
+        completed: list[str] | None = None,
+    ) -> WorkflowResult:
+        current = value
+        completed_steps = list(completed or [])
+        for index in range(start_at, len(workflow.steps)):
+            step = workflow.steps[index]
+            self.events.emit(
+                EventType.WORKFLOW_STEP_STARTED,
+                workflow=workflow.name,
+                step=step.name,
+                index=index,
+                kind=step.kind.value,
+            )
+            if step.kind != WorkflowStepKind.CALLABLE:
+                return WorkflowResult(
+                    name=workflow.name,
+                    output=current,
+                    steps=completed_steps,
+                    paused=True,
+                    current_step=index,
+                    state=current,
+                    metadata={
+                        "kind": step.kind.value,
+                        "reason": step.reason,
+                        "step": step.name,
+                        "prompt": step.prompt,
+                    },
+                )
+
+            if step.fn is None:
+                message = f"Workflow step {step.name!r} does not have a callable."
+                self.events.emit(
+                    EventType.WORKFLOW_STEP_FAILED,
+                    workflow=workflow.name,
+                    step=step.name,
+                    index=index,
+                    kind=step.kind.value,
+                    error="TypeError",
+                    message=message,
+                )
+                raise TypeError(message)
+
+            try:
+                current = step.fn(current)
+            except Exception as exc:
+                self.events.emit(
+                    EventType.WORKFLOW_STEP_FAILED,
+                    workflow=workflow.name,
+                    step=step.name,
+                    index=index,
+                    kind=step.kind.value,
+                    error=exc.__class__.__name__,
+                    message=str(exc),
+                )
+                raise
+
+            completed_steps.append(step.name)
+            self.events.emit(
+                EventType.WORKFLOW_STEP_COMPLETED,
+                workflow=workflow.name,
+                step=step.name,
+                index=index,
+                kind=step.kind.value,
+            )
+
+        return WorkflowResult(
+            name=workflow.name,
+            output=current,
+            steps=completed_steps,
+            state=current,
+        )
 
     def _workflow_checkpoint_summary(self, workflow_name: str, step_kind: str) -> str:
         if step_kind == "ask":

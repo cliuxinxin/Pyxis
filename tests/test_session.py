@@ -12,6 +12,8 @@ def test_session_navigate_runs_agent() -> None:
     assert [event.type for event in session.events] == [
         "UserMessageReceived",
         "CompassDecisionMade",
+        "ProviderStarted",
+        "ProviderDone",
         "AgentActionParsed",
         "AgentResponded",
     ]

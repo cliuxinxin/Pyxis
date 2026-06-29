@@ -14,6 +14,8 @@ All notable changes to Pyxis will be documented in this file.
   cancellation.
 - Policy decisions with approval modes, action deny lists, risk overrides, and
   checkpoint options.
+- Stable event schemas with provider lifecycle, workflow step, checkpoint,
+  policy, and session restore observability.
 - Tool argument validation for required parameters, unexpected parameters,
   defaults, common annotations, and `typing.Literal`.
 - Public `ToolValidationError` for invalid tool calls.

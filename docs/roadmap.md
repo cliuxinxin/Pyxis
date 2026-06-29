@@ -26,12 +26,13 @@ workflows.
 - Provider contract fields for usage, finish reasons, timeout, and cancellation.
 - Policy matrix for approval mode, action deny lists, risk overrides, and
   checkpoint options.
+- Stable event schemas for provider, tool, checkpoint, policy, workflow, and
+  session restore observability.
 
 ## Near-Term
 
 - Provider contract finalization for stream retry semantics.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
-- More detailed workflow step events.
 - Custom snapshot redaction policies beyond the current default redaction keys.
 - Versioned release automation beyond the current manual checklist.
 

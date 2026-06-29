@@ -140,7 +140,8 @@ for event in session.stream("帮我规划一个竞品研究流程"):
     print(event.type, event.data)
 ```
 
-当前 stream API 输出的是 turn-level events，provider 原生 token streaming 可以后续再接。
+当 provider 支持原生 streaming 时，`Session.stream()` 会输出 `delta` events；
+Session 自身也会记录 provider started/done/error 等可观测事件。
 
 如果想测试真实模型是否会遵循 Pyxis tool-call JSON 协议，可以运行：
 
@@ -263,7 +264,8 @@ print(snapshot["checkpoints"])
 ```
 
 Snapshot 包含 dialogue、events、checkpoints、pending tool calls 和 pending
-workflows。第一版先用于 inspection 和 audit trail，完整持久化恢复可以后续再加。
+workflows。配合显式注册的 callable catalog，可以恢复 session 并继续 pending
+tool call 或 workflow。
 
 也可以保存和读取审计快照：
 

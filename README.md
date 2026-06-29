@@ -144,6 +144,8 @@ for event in session.stream("Draft a concise plan"):
   reflective workflows.
 - [Providers](docs/concepts/providers.md): completion, streaming, usage,
   finish reasons, timeout, and cancellation contract.
+- [Events](docs/concepts/events.md): stable event schemas for observability,
+  snapshots, providers, tools, checkpoints, and workflows.
 - [Safety And Control](docs/guides/safety-control.md): policy modes, deny
   lists, risk overrides, and checkpoint options.
 
