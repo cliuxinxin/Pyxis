@@ -115,6 +115,15 @@ PYTHONPATH=src python3 examples/basic_openai_compatible.py
 The example reads `.env.local`, calls the configured OpenAI-compatible provider,
 and prints the agent response.
 
+To test whether a live model follows Pyxis tool-call JSON, run:
+
+```bash
+PYTHONPATH=src python3 examples/agent_tool_call.py
+```
+
+This example exposes one low-risk tool and one high-risk tool. The low-risk tool
+should execute directly. The high-risk tool should pause with a checkpoint.
+
 ## Session First
 
 Pyxis favors `Session.navigate()` over a bare `Agent.run()` call.

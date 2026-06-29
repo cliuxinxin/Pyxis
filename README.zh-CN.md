@@ -101,6 +101,14 @@ PYTHONPATH=src python3 examples/basic_openai_compatible.py
 示例会读取 `.env.local`，调用配置好的 OpenAI-compatible provider，并打印 Agent
 返回结果。
 
+如果想测试真实模型是否会遵循 Pyxis tool-call JSON 协议，可以运行：
+
+```bash
+PYTHONPATH=src python3 examples/agent_tool_call.py
+```
+
+这个示例暴露一个低风险工具和一个高风险工具。低风险工具应该直接执行；高风险工具应该暂停并生成 checkpoint。
+
 ## 可控工具调用
 
 通过 `Session` 调用工具时，Pyxis 会根据 `ControlPolicy` 判断是否需要 checkpoint。
