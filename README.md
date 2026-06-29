@@ -39,7 +39,7 @@ interruptible, and extensible.
 
 ## Install
 
-Pyxis is currently a local package scaffold:
+Install Pyxis from the repository while preparing the release:
 
 ```bash
 pip install -e ".[dev]"
@@ -210,6 +210,7 @@ and workflows, and add real providers at the edges.
 
 ## Status
 
-This repository is an early alpha. `0.1.1` is the next release line after the
-initial `0.1.0` MVP, focused on human-centered dialogue, consent UX, bounded
-memory, reflective workflows, provider-native streaming, and cleaner docs.
+Pyxis is preparing the `1.0.0` release line. The 1.0 contract focuses on a
+stable public API, controlled tools, restorable snapshots, provider streaming,
+policy/consent semantics, event observability, CLI workflows, and synchronized
+documentation.

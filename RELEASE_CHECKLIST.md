@@ -6,7 +6,7 @@ Use this checklist before publishing Pyxis.
 
 - Package: `pyxis-ai`
 - Import name: `pyxis`
-- Current version: `0.1.1`
+- Current version: `1.0.0`
 - Status: release candidate
 
 ## Required Checks
@@ -29,15 +29,15 @@ rg "<legacy-custom-env-prefix>|sk-|<known-secret-fragment>" .
 Inspect built artifacts:
 
 ```bash
-python3 -m zipfile --list dist/pyxis_ai-0.1.1-py3-none-any.whl
-tar -tzf dist/pyxis_ai-0.1.1.tar.gz
+python3 -m zipfile --list dist/pyxis_ai-1.0.0-py3-none-any.whl
+tar -tzf dist/pyxis_ai-1.0.0.tar.gz
 ```
 
 Install the wheel in a clean environment and smoke test imports and CLI:
 
 ```bash
 python3 -m venv /tmp/pyxis-release-check
-/tmp/pyxis-release-check/bin/python -m pip install dist/pyxis_ai-0.1.1-py3-none-any.whl
+/tmp/pyxis-release-check/bin/python -m pip install dist/pyxis_ai-1.0.0-py3-none-any.whl
 /tmp/pyxis-release-check/bin/python -c "import pyxis; print(pyxis.Pyxis)"
 /tmp/pyxis-release-check/bin/pyxis --env-file .env.example doctor
 /tmp/pyxis-release-check/bin/pyxis --env-file missing.env demo
@@ -82,7 +82,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `README.md` explains install, CLI, providers, snapshots, tools, and workflows.
 - `API_REFERENCE.md` documents public API, compatibility, and deprecation policy.
 - `README.zh-CN.md` mirrors the main usage path in Chinese.
-- `CHANGELOG.md` describes the `0.1.1` release.
+- `CHANGELOG.md` describes the `1.0.0` release.
 - `CONTRIBUTING.md` documents local development and safety expectations.
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
 - `docs/concepts/` contains session, checkpoint, tool action, and workflow docs.
@@ -106,7 +106,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 
 - Provider adapters beyond OpenAI-compatible chat completions are not included yet.
 
-## 0.1.1 Audit Notes
+## 1.0.0 Audit Notes
 
 The current release candidate has been checked with:
 

@@ -1,7 +1,7 @@
 # Migration Guide
 
-Pyxis is still pre-1.0, so this guide tracks the compatibility expectations for
-moving from the early MVP line toward the 1.0 contract.
+This guide tracks the compatibility expectations for moving from the early
+`0.x` MVP line to the `1.0` contract.
 
 ## Environment Variables
 

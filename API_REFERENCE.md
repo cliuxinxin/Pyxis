@@ -1,9 +1,8 @@
 # Pyxis API Reference
 
-This document tracks the public API surface Pyxis intends to stabilize for 1.0.
-
-Pyxis is currently `0.x`, so small adjustments are still possible. The 1.0
-contract will freeze the classes, functions, and behavior documented here.
+This document tracks the public API surface Pyxis stabilizes for the 1.0
+contract. The classes, functions, and behavior documented here are the
+backward-compatible surface for the 1.x release line.
 
 ## Compatibility Policy
 
@@ -18,13 +17,32 @@ After 1.0:
 - Private helpers, underscored methods, and undocumented module internals are not
   covered by the compatibility guarantee.
 
-Before 1.0:
-
-- Breaking changes should be rare, intentional, and documented in
-  `CHANGELOG.md`.
-- Each breaking change should include a migration path.
-
 ## Core Objects
+
+### `Pyxis`
+
+Small factory object that owns an `Agent`, `Compass`, and `ControlPolicy`.
+
+Stable surface:
+
+- `Pyxis(agent, compass=..., policy=...)`
+- `session() -> Session`
+- `navigate(user_input, *, requires_confirmation=False) -> NavigationResult`
+
+### `Compass`
+
+Dialogue navigation layer that decides whether to clarify, plan, act, confirm,
+or stop.
+
+Stable surface:
+
+- `analyze(user_input, *, requires_confirmation=False) -> CompassAnalysis`
+- `CompassAnalysis.intent`
+- `CompassAnalysis.goal`
+- `CompassAnalysis.clarification`
+- `CompassAnalysis.constraints`
+- `CompassAnalysis.preferences`
+- `CompassAnalysis.decision`
 
 ### `Agent`
 

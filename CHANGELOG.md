@@ -2,7 +2,9 @@
 
 All notable changes to Pyxis will be documented in this file.
 
-## Unreleased
+## 1.0.0 - 2026-06-29
+
+Stability release for the public Pyxis agent harness contract.
 
 ### Added
 
