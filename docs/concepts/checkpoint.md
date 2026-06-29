@@ -25,6 +25,31 @@ checkpoint = session.checkpoint(
 - `options`: approval choices, currently `approve` and `reject` by default.
 - `status`: `pending`, `approved`, or `rejected`.
 
+## Policy Decisions
+
+Checkpoints are created from `ControlPolicy` decisions.
+
+```python
+from pyxis import ControlPolicy
+
+policy = ControlPolicy(
+    approval_mode="strict",
+    deny_actions={"payment"},
+    risk_overrides={"file_write": "high"},
+    checkpoint_options=["approve", "reject", "revise"],
+)
+```
+
+Policy supports:
+
+- `approval_mode`: `permissive`, `balanced`, or `strict`.
+- `allow_auto_for_actions`: actions allowed to run without a checkpoint.
+- `deny_actions`: actions blocked before execution.
+- `risk_overrides`: action-specific effective risk.
+- `checkpoint_options`: choices copied into created checkpoints.
+
+Denied actions raise `PolicyDeniedError` instead of creating a checkpoint.
+
 ## Approval Flow
 
 ```python

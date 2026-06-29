@@ -12,6 +12,8 @@ All notable changes to Pyxis will be documented in this file.
   registered tools and workflows.
 - Provider contract fields for `usage`, `finish_reason`, request timeout, and
   cancellation.
+- Policy decisions with approval modes, action deny lists, risk overrides, and
+  checkpoint options.
 - Tool argument validation for required parameters, unexpected parameters,
   defaults, common annotations, and `typing.Literal`.
 - Public `ToolValidationError` for invalid tool calls.

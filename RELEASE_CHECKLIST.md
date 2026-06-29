@@ -55,7 +55,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `Checkpoint`
 - `CancellationToken`
 - `CompletionRequest` / `CompletionResult` / `CompletionChunk`
-- `ControlPolicy`
+- `ControlPolicy` / `ApprovalMode` / `PolicyDecision`
 - `Intent` / `UserGoal` / `Clarification`
 - `SessionMemory` / `UserPreferences` / `ProjectContext`
 - `Tool` / `tool`
@@ -64,6 +64,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `OpenAICompatibleProvider`
 - `ProviderConfigurationError` / `ProviderRequestError`
 - `ProviderTimeoutError` / `ProviderCancelledError`
+- `PolicyDeniedError`
 - `load_snapshot` / `save_snapshot`
 - `restore_session` / `SnapshotRestoreCatalog`
 - `parse_agent_action`
@@ -78,6 +79,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
 - `docs/concepts/` contains session, checkpoint, tool action, and workflow docs.
 - `docs/concepts/providers.md` documents provider contracts.
+- `docs/guides/safety-control.md` documents policy and consent behavior.
 - `.github/workflows/ci.yml` runs tests, lint, and build checks.
 
 ## Secret Safety
@@ -89,7 +91,6 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 ## Known MVP Limits
 
 - Stream retry semantics after a stream connection opens are still intentionally conservative.
-- Policy and consent rules are not yet a full approval matrix.
 - Provider adapters beyond OpenAI-compatible chat completions are not included yet.
 
 ## 0.1.1 Audit Notes

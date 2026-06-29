@@ -21,6 +21,10 @@ class CheckpointNotApproved(PyxisError):
     """Raised when an action is resumed before approval."""
 
 
+class PolicyDeniedError(PyxisError):
+    """Raised when a control policy denies an action."""
+
+
 class ToolExecutionError(PyxisError):
     """Raised when a tool fails during execution."""
 

@@ -124,6 +124,32 @@ Stable methods:
 - `approved`
 - `to_dict()`
 
+### `ControlPolicy`
+
+Human approval policy for actions.
+
+Stable surface:
+
+- `ControlPolicy.safe_default() -> ControlPolicy`
+- `ControlPolicy.strict() -> ControlPolicy`
+- `ControlPolicy.permissive() -> ControlPolicy`
+- `decide(action=..., risk=...) -> PolicyDecision`
+- `requires_confirmation(action=..., risk=...) -> bool`
+
+Stable fields:
+
+- `approval_mode`: `permissive`, `balanced`, or `strict`.
+- `require_confirmation_for_risk`
+- `require_confirmation_for_actions`
+- `allow_auto_for_actions`
+- `deny_actions`
+- `risk_overrides`
+- `checkpoint_options`
+
+`deny_actions` wins over automatic allow rules. `risk_overrides` changes the
+effective risk used by the policy decision. `checkpoint_options` are copied into
+created checkpoints.
+
 ### `Memory`
 
 Minimal memory protocol and bounded session memory.
@@ -163,6 +189,7 @@ requests.
 - `ToolValidationError`: tool arguments do not match the tool signature.
 - `ToolExecutionError`: user tool code raised during execution.
 - `ToolNotFound`: requested tool is not registered on the agent.
+- `PolicyDeniedError`: a control policy denied an action before execution.
 - `CheckpointNotFound`, `CheckpointNotApproved`, `CheckpointRejected`.
 - `ProviderConfigurationError`, `ProviderRequestError`, `ProviderTimeoutError`,
   `ProviderCancelledError`.

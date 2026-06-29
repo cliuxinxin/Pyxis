@@ -1,9 +1,10 @@
 import pytest
 
-from pyxis import Agent, CheckpointStatus, Pyxis, tool
+from pyxis import Agent, CheckpointStatus, ControlPolicy, Pyxis, tool
 from pyxis.errors import (
     CheckpointNotApproved,
     CheckpointRejected,
+    PolicyDeniedError,
     ToolNotFound,
     ToolValidationError,
 )
@@ -42,7 +43,9 @@ def test_high_risk_tool_pauses_with_checkpoint() -> None:
     assert result.checkpoint.status == CheckpointStatus.PENDING
     assert result.checkpoint.payload["tool"] == "write_file"
     assert result.checkpoint.summary == "Pyxis wants to run tool 'write_file'."
-    assert result.checkpoint.risk_reason == "This is a high-risk file_write action."
+    assert result.checkpoint.risk_reason == (
+        "Action 'file_write' requires confirmation with effective risk 'high'."
+    )
     assert result.checkpoint.preview == "write_file('demo.txt')"
     assert result.checkpoint.options == ["approve", "reject"]
     assert calls == []
@@ -116,3 +119,86 @@ def test_invalid_tool_arguments_fail_before_checkpoint() -> None:
     assert session.checkpoints == []
     assert session.pending_tool_calls == {}
     assert [event.type for event in session.events] == ["ToolValidationFailed"]
+
+
+def test_policy_denies_action_before_tool_execution() -> None:
+    calls: list[str] = []
+
+    @tool(risk="low", action="network_post")
+    def post(url: str) -> str:
+        calls.append(url)
+        return url
+
+    session = Pyxis(
+        agent=Agent(name="navigator", tools=[post]),
+        policy=ControlPolicy(deny_actions={"network_post"}),
+    ).session()
+
+    with pytest.raises(PolicyDeniedError, match="denied by policy"):
+        session.call_tool("post", "https://example.com")
+
+    assert calls == []
+    assert session.checkpoints == []
+    assert [event.type for event in session.events] == [
+        "ToolCallRequested",
+        "PolicyDenied",
+    ]
+
+
+def test_policy_risk_override_and_custom_options_shape_checkpoint() -> None:
+    @tool(risk="low", action="file_write")
+    def write_file(path: str) -> str:
+        return path
+
+    policy = ControlPolicy(
+        risk_overrides={"file_write": "high"},
+        checkpoint_options=["approve", "reject", "revise"],
+    )
+    session = Pyxis(agent=Agent(name="navigator", tools=[write_file]), policy=policy).session()
+
+    result = session.call_tool("write_file", "demo.txt")
+
+    assert result.requires_confirmation
+    assert result.checkpoint is not None
+    assert result.checkpoint.options == ["approve", "reject", "revise"]
+    assert result.checkpoint.payload["risk"] == "low"
+    assert result.checkpoint.payload["effective_risk"] == "high"
+    assert result.metadata["effective_risk"] == "high"
+
+
+def test_strict_policy_confirms_unlisted_actions() -> None:
+    @tool(risk="low", action="summarize")
+    def summarize(text: str) -> str:
+        return text[:5]
+
+    session = Pyxis(
+        agent=Agent(name="navigator", tools=[summarize]),
+        policy=ControlPolicy.strict(),
+    ).session()
+
+    result = session.call_tool("summarize", "pyxis-agent")
+
+    assert result.requires_confirmation
+    assert result.checkpoint is not None
+    assert result.checkpoint.risk_reason == "Strict approval mode requires confirmation."
+
+
+def test_permissive_policy_allows_high_risk_unless_explicitly_required() -> None:
+    calls: list[str] = []
+
+    @tool(risk="high", action="file_write")
+    def write_file(path: str) -> str:
+        calls.append(path)
+        return path
+
+    session = Pyxis(
+        agent=Agent(name="navigator", tools=[write_file]),
+        policy=ControlPolicy.permissive(),
+    ).session()
+
+    result = session.call_tool("write_file", "demo.txt")
+
+    assert result.output == "demo.txt"
+    assert result.requires_confirmation is False
+    assert session.checkpoints == []
+    assert calls == ["demo.txt"]

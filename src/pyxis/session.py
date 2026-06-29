@@ -15,6 +15,7 @@ from pyxis.errors import (
     CheckpointNotApproved,
     CheckpointNotFound,
     CheckpointRejected,
+    PolicyDeniedError,
     ToolNotFound,
     ToolValidationError,
 )
@@ -319,7 +320,17 @@ class Session:
             risk=call.risk,
         )
 
-        if self.policy.requires_confirmation(action=call.action, risk=call.risk):
+        decision = self.policy.decide(action=call.action, risk=call.risk)
+        if not decision.allowed:
+            self.events.emit(
+                "PolicyDenied",
+                tool=call.name,
+                action=call.action,
+                reason=decision.reason,
+            )
+            raise PolicyDeniedError(decision.reason)
+
+        if decision.requires_confirmation:
             checkpoint = self.checkpoint(
                 reason=f"Tool {call.name!r} requires confirmation before execution.",
                 action=call.action,
@@ -329,22 +340,31 @@ class Session:
                     "args": list(call.args),
                     "kwargs": call.kwargs,
                     "risk": call.risk,
+                    "effective_risk": decision.effective_risk,
+                    "policy_reason": decision.reason,
                 },
                 summary=f"Pyxis wants to run tool {call.name!r}.",
-                risk_reason=f"This is a {call.risk}-risk {call.action} action.",
+                risk_reason=decision.reason,
                 preview=self._preview_tool_call(call),
+                options=decision.options,
             )
             self.pending_tool_calls[checkpoint.id] = call
             self.events.emit(
                 "ToolCallPaused",
                 tool=call.name,
                 checkpoint_id=checkpoint.id,
+                policy_reason=decision.reason,
             )
             return ToolResult(
                 name=call.name,
                 requires_confirmation=True,
                 checkpoint=checkpoint,
-                metadata={"risk": call.risk, "action": call.action},
+                metadata={
+                    "risk": call.risk,
+                    "effective_risk": decision.effective_risk,
+                    "action": call.action,
+                    "policy_reason": decision.reason,
+                },
             )
 
         result = tool(*call.args, **call.kwargs)

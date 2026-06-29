@@ -17,6 +17,7 @@ from pyxis.errors import (
     CheckpointNotApproved,
     CheckpointNotFound,
     CheckpointRejected,
+    PolicyDeniedError,
     ProviderCancelledError,
     ProviderConfigurationError,
     ProviderRequestError,
@@ -35,7 +36,7 @@ from pyxis.memory import (
     SessionMemory,
     UserPreferences,
 )
-from pyxis.policy import ControlPolicy
+from pyxis.policy import ApprovalMode, ControlPolicy, PolicyDecision
 from pyxis.providers import (
     CancellationToken,
     CompletionChunk,
@@ -57,6 +58,7 @@ __all__ = [
     "AgentAction",
     "AgentActionType",
     "AgentResult",
+    "ApprovalMode",
     "CancellationToken",
     "Checkpoint",
     "CheckpointNotApproved",
@@ -84,6 +86,8 @@ __all__ = [
     "NoMemory",
     "OpenAICompatibleProvider",
     "Provider",
+    "PolicyDecision",
+    "PolicyDeniedError",
     "ProviderCancelledError",
     "ProviderConfigurationError",
     "ProviderRequestError",

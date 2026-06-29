@@ -24,11 +24,12 @@ workflows.
 - Concept documentation for sessions, checkpoints, tool actions, and workflows.
 - Snapshot restore through registered callable catalogs.
 - Provider contract fields for usage, finish reasons, timeout, and cancellation.
+- Policy matrix for approval mode, action deny lists, risk overrides, and
+  checkpoint options.
 
 ## Near-Term
 
 - Provider contract finalization for stream retry semantics.
-- Policy matrix for approval mode, action allow/deny lists, and risk overrides.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
 - More detailed workflow step events.
 - Custom snapshot redaction policies beyond the current default redaction keys.
