@@ -49,6 +49,30 @@ printf '{"agent":{"name":"navigator"},"events":[]}' > /tmp/pyxis-release-check/s
 
 After pushing to GitHub, confirm the CI workflow passes on `main`.
 
+## GitHub Actions Publish
+
+Create a repository secret before publishing:
+
+- Secret name: `PYPI_API_TOKEN`
+- Secret value: the PyPI project or account token
+
+The token must stay in GitHub Secrets. Do not commit it to the repository.
+
+Publish through GitHub:
+
+```bash
+git push origin main
+git tag -a v1.0.0 -m "Pyxis 1.0.0"
+git push origin v1.0.0
+```
+
+Then create a GitHub Release for `v1.0.0` and click **Publish release**. The
+`Publish` workflow builds the package, checks metadata, and uploads `dist/*` to
+PyPI using `PYPI_API_TOKEN`.
+
+The workflow can also be run manually with `workflow_dispatch` after confirming
+the target version has not already been published on PyPI.
+
 ## Public API Review
 
 The top-level `pyxis` package should expose the main user-facing primitives:
@@ -96,6 +120,8 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `docs/guides/migration.md` documents migration toward the 1.0 contract.
 - `.github/workflows/ci.yml` runs tests, lint, build, package metadata, wheel
   install, import, and CLI smoke checks.
+- `.github/workflows/publish.yml` publishes the built package to PyPI from a
+  GitHub Release or manual workflow run.
 
 ## Secret Safety
 
