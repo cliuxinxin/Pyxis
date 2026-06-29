@@ -1,5 +1,6 @@
 """Pyxis: a human-centered Python agent harness."""
 
+from pyxis.actions import AgentAction, AgentActionType, parse_agent_action
 from pyxis.agent import Agent
 from pyxis.checkpoint import Checkpoint, CheckpointStatus
 from pyxis.compass import Compass, CompassDecision, CompassDecisionType
@@ -15,6 +16,8 @@ from pyxis.workflow import Workflow
 
 __all__ = [
     "Agent",
+    "AgentAction",
+    "AgentActionType",
     "AgentResult",
     "Checkpoint",
     "CheckpointStatus",
@@ -38,5 +41,6 @@ __all__ = [
     "ToolResult",
     "Workflow",
     "WorkflowResult",
+    "parse_agent_action",
     "tool",
 ]

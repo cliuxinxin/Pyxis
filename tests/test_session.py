@@ -9,7 +9,12 @@ def test_session_navigate_runs_agent() -> None:
 
     assert result.output == "On it."
     assert result.decision == "run_agent"
-    assert len(session.events) == 3
+    assert [event.type for event in session.events] == [
+        "UserMessageReceived",
+        "CompassDecisionMade",
+        "AgentActionParsed",
+        "AgentResponded",
+    ]
 
 
 def test_session_creates_checkpoint_when_confirmation_is_required() -> None:

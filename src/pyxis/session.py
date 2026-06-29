@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from pyxis.actions import AgentActionType, parse_agent_action
 from pyxis.agent import Agent
 from pyxis.checkpoint import Checkpoint, CheckpointStatus
 from pyxis.compass import Compass, CompassDecisionType
@@ -40,6 +41,8 @@ class Session:
             reason=decision.reason,
         )
 
+        metadata: dict[str, Any] = {}
+
         if decision.type == CompassDecisionType.ASK_CLARIFICATION:
             output = decision.prompt or "Can you clarify what you want to do next?"
         elif decision.type == CompassDecisionType.STOP:
@@ -56,14 +59,44 @@ class Session:
                 f"Propose a concise, controllable plan for this request:\n{user_input}",
                 context={"decision": decision.type.value},
             )
-            output = result.output
+            output, metadata = self._handle_agent_output(result.output)
         else:
             result = self.agent.run(user_input, context={"decision": decision.type.value})
-            output = result.output
+            output, metadata = self._handle_agent_output(result.output)
 
         self.dialogue.add("agent", output)
         self.events.emit("AgentResponded", content=output)
-        return NavigationResult(output=output, decision=decision.type.value)
+        return NavigationResult(output=output, decision=decision.type.value, metadata=metadata)
+
+    def _handle_agent_output(self, output: str) -> tuple[str, dict[str, Any]]:
+        action = parse_agent_action(output)
+        self.events.emit("AgentActionParsed", action=action.type.value)
+
+        if action.type == AgentActionType.TOOL_CALL:
+            if action.tool is None:
+                return output, {"agent_action": action}
+
+            tool_result = self.call_tool(action.tool, *action.args, **action.kwargs)
+            if tool_result.requires_confirmation:
+                message = (
+                    f"Confirmation required before running tool {tool_result.name!r}: "
+                    f"{tool_result.checkpoint.reason}"
+                )
+            else:
+                message = str(tool_result.output)
+
+            return message, {
+                "agent_action": action,
+                "tool_result": tool_result,
+            }
+
+        if action.type == AgentActionType.STOP:
+            return action.content or "Stopped.", {"agent_action": action}
+
+        if action.raw != output:
+            return action.content, {"agent_action": action}
+
+        return output, {}
 
     def checkpoint(
         self,

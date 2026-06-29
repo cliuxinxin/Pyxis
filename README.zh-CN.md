@@ -133,6 +133,44 @@ print(result.output)
 
 高风险工具不会立刻执行，而是先暂停并生成 checkpoint。只有确认后，Pyxis 才会恢复执行。
 
+## Agent 工具调用协议
+
+Agent 可以通过一个轻量 JSON action 请求工具调用：
+
+```json
+{
+  "type": "tool_call",
+  "tool": "summarize",
+  "args": {
+    "text": "Pyxis helps agents move through work with control."
+  }
+}
+```
+
+`Session.navigate()` 会在 Agent 返回后解析这个协议。低风险工具会直接执行；高风险工具会复用
+`session.call_tool()` 的 checkpoint 流程。
+
+```python
+from pyxis import Agent, MockProvider, Pyxis, tool
+
+@tool(risk="low", action="summarize")
+def summarize(text: str) -> str:
+    return text[:32]
+
+agent = Agent(
+    name="navigator",
+    provider=MockProvider(
+        output='{"type":"tool_call","tool":"summarize","args":{"text":"Pyxis keeps humans in control."}}'
+    ),
+    tools=[summarize],
+)
+
+result = Pyxis(agent=agent).navigate("Summarize this")
+print(result.output)
+```
+
+如果 Agent 返回的不是合法 action JSON，Pyxis 会把它当作普通文本消息处理。
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

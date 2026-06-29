@@ -184,6 +184,45 @@ print(result.output)
 High-risk tools pause before execution. The pending call is resumed only after
 the checkpoint is approved.
 
+## Agent Tool-Call Protocol
+
+Agents can request tool calls by returning a small JSON action object:
+
+```json
+{
+  "type": "tool_call",
+  "tool": "summarize",
+  "args": {
+    "text": "Pyxis helps agents move through work with control."
+  }
+}
+```
+
+`Session.navigate()` parses this protocol after the agent responds. Low-risk
+tools run immediately. High-risk tools use the same checkpoint flow as manual
+`session.call_tool()` calls.
+
+```python
+from pyxis import Agent, MockProvider, Pyxis, tool
+
+@tool(risk="low", action="summarize")
+def summarize(text: str) -> str:
+    return text[:32]
+
+agent = Agent(
+    name="navigator",
+    provider=MockProvider(
+        output='{"type":"tool_call","tool":"summarize","args":{"text":"Pyxis keeps humans in control."}}'
+    ),
+    tools=[summarize],
+)
+
+result = Pyxis(agent=agent).navigate("Summarize this")
+print(result.output)
+```
+
+If the response is not valid action JSON, Pyxis treats it as a normal message.
+
 ## Workflows
 
 ```python
