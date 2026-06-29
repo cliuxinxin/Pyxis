@@ -20,7 +20,7 @@ workflows.
 - Stronger tool argument validation beyond the current signature-derived schema.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
 - More detailed workflow step events.
-- Snapshot redaction hooks for sensitive payloads.
+- Custom snapshot redaction policies beyond the current default redaction keys.
 
 ## Later
 

@@ -98,10 +98,12 @@ def test_openai_compatible_provider_retries_server_errors() -> None:
         def do_POST(self) -> None:
             seen["requests"] += 1
             if seen["requests"] == 1:
+                body = b'{"error":"temporary"}'
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(b'{"error":"temporary"}')
+                self.wfile.write(body)
                 return
 
             response = {
@@ -115,8 +117,10 @@ def test_openai_compatible_provider_retries_server_errors() -> None:
             }
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            body = json.dumps(response).encode("utf-8")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(json.dumps(response).encode("utf-8"))
+            self.wfile.write(body)
 
         def log_message(self, format: str, *args) -> None:
             return None

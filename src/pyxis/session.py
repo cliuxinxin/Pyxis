@@ -15,7 +15,7 @@ from pyxis.errors import CheckpointNotApproved, CheckpointNotFound, CheckpointRe
 from pyxis.events import EventLog
 from pyxis.policy import ControlPolicy
 from pyxis.results import NavigationResult, StreamEvent, ToolResult, WorkflowResult
-from pyxis.serialization import to_jsonable
+from pyxis.serialization import redact_jsonable, to_jsonable
 from pyxis.snapshots import save_snapshot
 from pyxis.tools import ToolCall
 from pyxis.workflow import Workflow
@@ -295,10 +295,10 @@ class Session:
                 return checkpoint
         raise CheckpointNotFound(f"Checkpoint {checkpoint_id!r} was not found.")
 
-    def snapshot(self) -> dict[str, Any]:
+    def snapshot(self, *, redact: bool = False) -> dict[str, Any]:
         """Return a JSON-safe audit snapshot of the session."""
 
-        return {
+        snapshot = {
             "agent": {
                 "name": self.agent.name,
                 "tools": self.agent.tool_manifest(),
@@ -315,11 +315,14 @@ class Session:
                 for checkpoint_id, pending in self.pending_workflows.items()
             },
         }
+        if redact:
+            return redact_jsonable(snapshot)
+        return snapshot
 
-    def save_snapshot(self, path: str | Path) -> Path:
+    def save_snapshot(self, path: str | Path, *, redact: bool = False) -> Path:
         """Save the current session snapshot to a JSON file."""
 
-        return save_snapshot(self.snapshot(), path)
+        return save_snapshot(self.snapshot(redact=redact), path)
 
     def run(self, workflow: Workflow, value: Any) -> WorkflowResult:
         self.events.emit("WorkflowStarted", workflow=workflow.name)

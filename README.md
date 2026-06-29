@@ -123,6 +123,12 @@ session.save_snapshot("session-audit.json")
 snapshot = load_snapshot("session-audit.json")
 ```
 
+Use redaction when exporting snapshots that may contain sensitive payloads:
+
+```python
+session.save_snapshot("session-audit.json", redact=True)
+```
+
 ## OpenAI-Compatible Providers
 
 Pyxis can call OpenAI-compatible chat completions APIs without requiring an SDK.

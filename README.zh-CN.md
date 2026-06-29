@@ -274,6 +274,12 @@ session.save_snapshot("session-audit.json")
 snapshot = load_snapshot("session-audit.json")
 ```
 
+如果 snapshot 里可能包含敏感 payload，可以启用 redaction：
+
+```python
+session.save_snapshot("session-audit.json", redact=True)
+```
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

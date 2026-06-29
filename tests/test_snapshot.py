@@ -71,3 +71,37 @@ def test_load_snapshot_rejects_non_object_json(tmp_path) -> None:
 
     with pytest.raises(ValueError):
         load_snapshot(path)
+
+
+def test_session_snapshot_can_redact_sensitive_fields() -> None:
+    @tool(risk="high", action="file_write")
+    def write_file(path: str, content: str, api_key: str) -> str:
+        return path
+
+    session = Pyxis(agent=Agent(name="navigator", tools=[write_file])).session()
+    paused = session.call_tool(
+        "write_file",
+        "demo.txt",
+        content="private content",
+        api_key="secret-key",
+    )
+    assert paused.checkpoint is not None
+
+    snapshot = session.snapshot(redact=True)
+    pending = snapshot["pending_tool_calls"][paused.checkpoint.id]
+    checkpoint = snapshot["checkpoints"][0]
+
+    assert pending["kwargs"]["content"] == "[REDACTED]"
+    assert pending["kwargs"]["api_key"] == "[REDACTED]"
+    assert checkpoint["payload"]["kwargs"]["content"] == "[REDACTED]"
+    assert checkpoint["payload"]["kwargs"]["api_key"] == "[REDACTED]"
+
+
+def test_session_save_snapshot_can_redact(tmp_path) -> None:
+    session = Pyxis(agent=Agent(name="navigator")).session()
+    session.navigate("private message")
+
+    path = session.save_snapshot(tmp_path / "session.json", redact=True)
+    loaded = load_snapshot(path)
+
+    assert loaded["dialogue"]["messages"][0]["content"] == "[REDACTED]"
