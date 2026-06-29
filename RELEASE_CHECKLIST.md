@@ -17,6 +17,7 @@ Run from the repository root:
 PYTHONPATH=src python3 -m pytest
 python3 -m ruff check .
 python3 -m build
+python3 -m twine check dist/*
 ```
 
 Confirm no local secrets or legacy custom environment variables are tracked:
@@ -88,7 +89,8 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `docs/concepts/providers.md` documents provider contracts.
 - `docs/concepts/events.md` documents event schemas and observability contracts.
 - `docs/guides/safety-control.md` documents policy and consent behavior.
-- `.github/workflows/ci.yml` runs tests, lint, and build checks.
+- `.github/workflows/ci.yml` runs tests, lint, build, package metadata, wheel
+  install, import, and CLI smoke checks.
 
 ## Secret Safety
 
@@ -108,6 +110,7 @@ The current release candidate has been checked with:
 - `PYTHONPATH=src python3 -m pytest`
 - `python3 -m ruff check .`
 - `python3 -m build`
+- `python3 -m twine check dist/*`
 - wheel content inspection
 - sdist content inspection
 - wheel install in a temporary virtual environment
