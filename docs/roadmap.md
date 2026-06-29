@@ -32,6 +32,7 @@ workflows.
   session restore observability.
 - Snapshot metadata schema versioning and custom redaction policies.
 - CI package smoke tests for wheel install, import, metadata, and CLI commands.
+- Deterministic fuzz coverage for agent action JSON parsing.
 
 ## Near-Term
 
