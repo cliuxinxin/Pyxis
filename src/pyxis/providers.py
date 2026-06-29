@@ -11,7 +11,30 @@ from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from pyxis.errors import ProviderConfigurationError, ProviderRequestError
+from pyxis.errors import (
+    ProviderCancelledError,
+    ProviderConfigurationError,
+    ProviderRequestError,
+    ProviderTimeoutError,
+)
+
+
+class CancellationToken:
+    """Simple cancellation token shared with provider calls."""
+
+    def __init__(self) -> None:
+        self._cancelled = False
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancelled
+
+    def cancel(self) -> None:
+        self._cancelled = True
+
+    def throw_if_cancelled(self) -> None:
+        if self._cancelled:
+            raise ProviderCancelledError("Provider request was cancelled.")
 
 
 @dataclass(frozen=True)
@@ -21,6 +44,8 @@ class CompletionRequest:
     prompt: str
     instructions: str = ""
     context: dict[str, Any] = field(default_factory=dict)
+    timeout: float | None = None
+    cancellation_token: CancellationToken | None = None
 
 
 @dataclass(frozen=True)
@@ -30,6 +55,8 @@ class CompletionResult:
     output: str
     raw: Any = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    usage: dict[str, Any] | None = None
+    finish_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -39,6 +66,8 @@ class CompletionChunk:
     text: str
     raw: Any = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    usage: dict[str, Any] | None = None
+    finish_reason: str | None = None
 
 
 class Provider(Protocol):
@@ -56,11 +85,16 @@ class MockProvider:
         self.requests: list[CompletionRequest] = []
 
     def complete(self, request: CompletionRequest) -> CompletionResult:
+        _throw_if_cancelled(request)
         self.requests.append(request)
         output = self.output
         if output is None:
             output = f"{request.instructions}\n{request.prompt}".strip()
-        return CompletionResult(output=output, metadata={"provider": "mock"})
+        return CompletionResult(
+            output=output,
+            metadata={"provider": "mock", "finish_reason": "stop"},
+            finish_reason="stop",
+        )
 
 
 class OpenAICompatibleProvider:
@@ -89,6 +123,7 @@ class OpenAICompatibleProvider:
         self.extra_headers = dict(extra_headers or {})
 
     def complete(self, request: CompletionRequest) -> CompletionResult:
+        _throw_if_cancelled(request)
         if not self.base_url:
             raise ProviderConfigurationError(
                 "OpenAICompatibleProvider requires base_url or OPENAI_BASE_URL."
@@ -99,19 +134,25 @@ class OpenAICompatibleProvider:
             )
 
         payload = self._build_payload(request)
-        response = self._post_json("/chat/completions", payload)
+        response = self._post_json("/chat/completions", payload, request=request)
         output = self._extract_output(response)
+        finish_reason = self._extract_finish_reason(response)
+        usage = response.get("usage") if isinstance(response.get("usage"), dict) else None
         return CompletionResult(
             output=output,
             raw=response,
             metadata={
                 "provider": "openai-compatible",
                 "model": self.model,
-                "usage": response.get("usage"),
+                "usage": usage,
+                "finish_reason": finish_reason,
             },
+            usage=usage,
+            finish_reason=finish_reason,
         )
 
     def stream(self, request: CompletionRequest) -> Iterator[CompletionChunk]:
+        _throw_if_cancelled(request)
         if not self.base_url:
             raise ProviderConfigurationError(
                 "OpenAICompatibleProvider requires base_url or OPENAI_BASE_URL."
@@ -123,7 +164,7 @@ class OpenAICompatibleProvider:
 
         payload = self._build_payload(request)
         payload["stream"] = True
-        yield from self._post_stream("/chat/completions", payload)
+        yield from self._post_stream("/chat/completions", payload, request=request)
 
     def _build_payload(self, request: CompletionRequest) -> dict[str, Any]:
         messages: list[dict[str, str]] = []
@@ -139,7 +180,13 @@ class OpenAICompatibleProvider:
             payload["temperature"] = self.temperature
         return payload
 
-    def _post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post_json(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        *,
+        request: CompletionRequest,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
         body = json.dumps(payload).encode("utf-8")
         headers = {
@@ -147,9 +194,9 @@ class OpenAICompatibleProvider:
             "Content-Type": "application/json",
             **self.extra_headers,
         }
-        request = Request(url, data=body, headers=headers, method="POST")
+        http_request = Request(url, data=body, headers=headers, method="POST")
 
-        data = self._send_with_retries(request)
+        data = self._send_with_retries(http_request, request=request)
 
         try:
             parsed = json.loads(data)
@@ -164,6 +211,8 @@ class OpenAICompatibleProvider:
         self,
         path: str,
         payload: dict[str, Any],
+        *,
+        request: CompletionRequest,
     ) -> Iterator[CompletionChunk]:
         url = f"{self.base_url}{path}"
         body = json.dumps(payload).encode("utf-8")
@@ -173,25 +222,48 @@ class OpenAICompatibleProvider:
             "Accept": "text/event-stream",
             **self.extra_headers,
         }
-        request = Request(url, data=body, headers=headers, method="POST")
+        http_request = Request(url, data=body, headers=headers, method="POST")
 
         try:
-            with urlopen(request, timeout=self.timeout) as response:
-                for raw_line in response:
-                    line = raw_line.decode("utf-8", errors="replace").strip()
-                    if not line or not line.startswith("data:"):
-                        continue
-                    data = line.removeprefix("data:").strip()
-                    if data == "[DONE]":
+            _throw_if_cancelled(request)
+            timeout = request.timeout if request.timeout is not None else self.timeout
+            with urlopen(http_request, timeout=timeout) as response:
+                for event_data in self._iter_sse_data(response, request=request):
+                    if event_data == "[DONE]":
                         break
-                    yield self._parse_stream_chunk(data)
+                    yield self._parse_stream_chunk(event_data)
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
             raise ProviderRequestError(
                 f"Provider stream failed with HTTP {exc.code}: {detail}"
             ) from exc
+        except TimeoutError as exc:
+            raise ProviderTimeoutError("Provider stream timed out.") from exc
         except URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                raise ProviderTimeoutError("Provider stream timed out.") from exc
             raise ProviderRequestError(f"Provider stream failed: {exc.reason}") from exc
+
+    def _iter_sse_data(
+        self,
+        response,
+        *,
+        request: CompletionRequest,
+    ) -> Iterator[str]:
+        event_lines: list[str] = []
+        for raw_line in response:
+            _throw_if_cancelled(request)
+            line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
+            if not line:
+                if event_lines:
+                    yield "\n".join(event_lines)
+                    event_lines = []
+                continue
+            if not line.startswith("data:"):
+                continue
+            event_lines.append(line.removeprefix("data:").strip())
+        if event_lines:
+            yield "\n".join(event_lines)
 
     def _parse_stream_chunk(self, data: str) -> CompletionChunk:
         try:
@@ -202,14 +274,19 @@ class OpenAICompatibleProvider:
         if not isinstance(parsed, dict):
             raise ProviderRequestError("Provider stream returned a non-object JSON chunk.")
 
-        text = ""
         try:
-            delta = parsed["choices"][0].get("delta", {})
-            text = delta.get("content") or ""
+            choice = parsed["choices"][0]
+            delta = choice.get("delta", {})
         except (KeyError, IndexError, TypeError, AttributeError) as exc:
-            raise ProviderRequestError(
-                "Provider stream chunk did not include delta content."
-            ) from exc
+            raise ProviderRequestError("Provider stream chunk did not include choices.") from exc
+        if delta is None:
+            delta = {}
+        if not isinstance(delta, dict):
+            raise ProviderRequestError("Provider stream chunk delta was not an object.")
+
+        text = delta.get("content") or ""
+        finish_reason = choice.get("finish_reason")
+        usage = parsed.get("usage") if isinstance(parsed.get("usage"), dict) else None
 
         return CompletionChunk(
             text=text,
@@ -217,17 +294,27 @@ class OpenAICompatibleProvider:
             metadata={
                 "provider": "openai-compatible",
                 "model": self.model,
-                "usage": parsed.get("usage"),
+                "usage": usage,
+                "finish_reason": finish_reason,
             },
+            usage=usage,
+            finish_reason=finish_reason,
         )
 
-    def _send_with_retries(self, request: Request) -> str:
+    def _send_with_retries(
+        self,
+        http_request: Request,
+        *,
+        request: CompletionRequest,
+    ) -> str:
         attempts = self.max_retries + 1
         last_error: Exception | None = None
 
         for attempt in range(attempts):
+            _throw_if_cancelled(request)
             try:
-                with urlopen(request, timeout=self.timeout) as response:
+                timeout = request.timeout if request.timeout is not None else self.timeout
+                with urlopen(http_request, timeout=timeout) as response:
                     return response.read().decode("utf-8")
             except HTTPError as exc:
                 detail = exc.read().decode("utf-8", errors="replace")
@@ -242,8 +329,15 @@ class OpenAICompatibleProvider:
                         f"Provider request failed after {attempts} attempt(s): {exc.reason}"
                     ) from exc
                 last_error = exc
+            except TimeoutError as exc:
+                if attempt == attempts - 1:
+                    raise ProviderTimeoutError(
+                        f"Provider request timed out after {attempts} attempt(s)."
+                    ) from exc
+                last_error = exc
 
             if self.backoff > 0:
+                _throw_if_cancelled(request)
                 time.sleep(self.backoff * (2**attempt))
 
         raise ProviderRequestError(f"Provider request failed: {last_error}") from last_error
@@ -259,3 +353,17 @@ class OpenAICompatibleProvider:
         if not isinstance(output, str):
             raise ProviderRequestError("Provider message content was not a string.")
         return output
+
+    def _extract_finish_reason(self, response: dict[str, Any]) -> str | None:
+        try:
+            finish_reason = response["choices"][0].get("finish_reason")
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise ProviderRequestError(
+                "Provider response did not include a valid choice."
+            ) from exc
+        return finish_reason if isinstance(finish_reason, (str, type(None))) else None
+
+
+def _throw_if_cancelled(request: CompletionRequest) -> None:
+    if request.cancellation_token is not None:
+        request.cancellation_token.throw_if_cancelled()

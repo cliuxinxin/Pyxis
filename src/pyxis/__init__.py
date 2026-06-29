@@ -17,8 +17,10 @@ from pyxis.errors import (
     CheckpointNotApproved,
     CheckpointNotFound,
     CheckpointRejected,
+    ProviderCancelledError,
     ProviderConfigurationError,
     ProviderRequestError,
+    ProviderTimeoutError,
     SnapshotRestoreError,
     ToolExecutionError,
     ToolNotFound,
@@ -34,7 +36,15 @@ from pyxis.memory import (
     UserPreferences,
 )
 from pyxis.policy import ControlPolicy
-from pyxis.providers import CompletionChunk, MockProvider, OpenAICompatibleProvider, Provider
+from pyxis.providers import (
+    CancellationToken,
+    CompletionChunk,
+    CompletionRequest,
+    CompletionResult,
+    MockProvider,
+    OpenAICompatibleProvider,
+    Provider,
+)
 from pyxis.pyxis import Pyxis
 from pyxis.results import AgentResult, NavigationResult, StreamEvent, ToolResult, WorkflowResult
 from pyxis.session import Session
@@ -47,6 +57,7 @@ __all__ = [
     "AgentAction",
     "AgentActionType",
     "AgentResult",
+    "CancellationToken",
     "Checkpoint",
     "CheckpointNotApproved",
     "CheckpointNotFound",
@@ -54,6 +65,8 @@ __all__ = [
     "CheckpointStatus",
     "Clarification",
     "CompletionChunk",
+    "CompletionRequest",
+    "CompletionResult",
     "Compass",
     "CompassAnalysis",
     "CompassDecision",
@@ -71,8 +84,10 @@ __all__ = [
     "NoMemory",
     "OpenAICompatibleProvider",
     "Provider",
+    "ProviderCancelledError",
     "ProviderConfigurationError",
     "ProviderRequestError",
+    "ProviderTimeoutError",
     "ProjectContext",
     "Pyxis",
     "ResponseStyle",

@@ -41,5 +41,13 @@ class ProviderRequestError(PyxisError):
     """Raised when a provider request fails."""
 
 
+class ProviderTimeoutError(ProviderRequestError):
+    """Raised when a provider request times out."""
+
+
+class ProviderCancelledError(ProviderRequestError):
+    """Raised when a provider request is cancelled."""
+
+
 class SnapshotRestoreError(PyxisError):
     """Raised when a session snapshot cannot be restored."""

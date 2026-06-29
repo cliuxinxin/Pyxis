@@ -2,7 +2,18 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from pyxis import Agent, CompletionChunk, MockProvider, OpenAICompatibleProvider, Pyxis, tool
+import pytest
+
+from pyxis import (
+    Agent,
+    CancellationToken,
+    CompletionChunk,
+    MockProvider,
+    OpenAICompatibleProvider,
+    ProviderCancelledError,
+    Pyxis,
+    tool,
+)
 
 
 def test_session_stream_yields_start_result_done() -> None:
@@ -71,6 +82,10 @@ def test_openai_compatible_provider_streams_sse_chunks() -> None:
             chunks = [
                 {"choices": [{"delta": {"content": "hel"}}]},
                 {"choices": [{"delta": {"content": "lo"}}]},
+                {
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+                    "choices": [{"delta": {}, "finish_reason": "stop"}],
+                },
             ]
             body = "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks)
             body += "data: [DONE]\n\n"
@@ -100,8 +115,65 @@ def test_openai_compatible_provider_streams_sse_chunks() -> None:
         server.shutdown()
         thread.join(timeout=2)
 
-    assert [chunk.text for chunk in chunks] == ["hel", "lo"]
+    assert [chunk.text for chunk in chunks] == ["hel", "lo", ""]
+    assert chunks[-1].finish_reason == "stop"
+    assert chunks[-1].usage == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "total_tokens": 3,
+    }
     assert seen["path"] == "/chat/completions"
     assert seen["authorization"] == "Bearer test-key"
     assert seen["body"]["stream"] is True
     assert seen["body"]["model"] == "test-model"
+
+
+def test_provider_stream_respects_cancellation_token_between_chunks() -> None:
+    token = CancellationToken()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            length = int(self.headers["Content-Length"])
+            self.rfile.read(length)
+            chunks = [
+                {"choices": [{"delta": {"content": "hel"}}]},
+                {"choices": [{"delta": {"content": "lo"}}]},
+            ]
+            body = "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks)
+            body += "data: [DONE]\n\n"
+            encoded = body.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, format: str, *args) -> None:
+            return None
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        provider = OpenAICompatibleProvider(
+            model="test-model",
+            base_url=f"http://127.0.0.1:{server.server_port}",
+            api_key="test-key",
+        )
+        stream = provider.stream(
+            Agent(name="navigator").completion_request(
+                "Hello",
+                cancellation_token=token,
+            )
+        )
+
+        first = next(stream)
+        token.cancel()
+        with pytest.raises(ProviderCancelledError):
+            next(stream)
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert first.text == "hel"

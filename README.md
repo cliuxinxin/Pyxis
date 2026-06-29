@@ -142,6 +142,8 @@ for event in session.stream("Draft a concise plan"):
   and model-requested tool calls.
 - [Workflows](docs/concepts/workflows.md): sequential, checkpointed, and
   reflective workflows.
+- [Providers](docs/concepts/providers.md): completion, streaming, usage,
+  finish reasons, timeout, and cancellation contract.
 
 ## Examples
 

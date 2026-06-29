@@ -53,7 +53,8 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `Session`
 - `Compass`
 - `Checkpoint`
-- `CompletionChunk`
+- `CancellationToken`
+- `CompletionRequest` / `CompletionResult` / `CompletionChunk`
 - `ControlPolicy`
 - `Intent` / `UserGoal` / `Clarification`
 - `SessionMemory` / `UserPreferences` / `ProjectContext`
@@ -61,7 +62,10 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `Workflow`
 - `MockProvider`
 - `OpenAICompatibleProvider`
+- `ProviderConfigurationError` / `ProviderRequestError`
+- `ProviderTimeoutError` / `ProviderCancelledError`
 - `load_snapshot` / `save_snapshot`
+- `restore_session` / `SnapshotRestoreCatalog`
 - `parse_agent_action`
 
 ## Documentation Review
@@ -73,6 +77,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `CONTRIBUTING.md` documents local development and safety expectations.
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
 - `docs/concepts/` contains session, checkpoint, tool action, and workflow docs.
+- `docs/concepts/providers.md` documents provider contracts.
 - `.github/workflows/ci.yml` runs tests, lint, and build checks.
 
 ## Secret Safety
@@ -83,9 +88,9 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 
 ## Known MVP Limits
 
-- Snapshot loading is inspection-only and does not restore Python callables.
-- Tool argument schemas are descriptive rather than strongly validated.
-- Provider support targets OpenAI-compatible chat completions APIs.
+- Stream retry semantics after a stream connection opens are still intentionally conservative.
+- Policy and consent rules are not yet a full approval matrix.
+- Provider adapters beyond OpenAI-compatible chat completions are not included yet.
 
 ## 0.1.1 Audit Notes
 

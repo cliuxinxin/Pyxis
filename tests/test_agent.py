@@ -2,7 +2,17 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from pyxis import Agent, MockProvider, OpenAICompatibleProvider
+import pytest
+
+import pyxis.providers as provider_module
+from pyxis import (
+    Agent,
+    CancellationToken,
+    MockProvider,
+    OpenAICompatibleProvider,
+    ProviderCancelledError,
+    ProviderTimeoutError,
+)
 
 
 def test_agent_runs_with_provider() -> None:
@@ -35,7 +45,8 @@ def test_agent_runs_with_openai_compatible_provider() -> None:
                     {
                         "message": {
                             "content": "provider answer",
-                        }
+                        },
+                        "finish_reason": "stop",
                     }
                 ]
             }
@@ -70,6 +81,7 @@ def test_agent_runs_with_openai_compatible_provider() -> None:
         "completion_tokens": 2,
         "total_tokens": 5,
     }
+    assert result.metadata["finish_reason"] == "stop"
     assert seen["path"] == "/chat/completions"
     assert seen["authorization"] == "Bearer test-key"
     assert seen["body"] == {
@@ -146,3 +158,57 @@ def test_openai_compatible_provider_retries_server_errors() -> None:
 
     assert result.output == "retried answer"
     assert seen["requests"] == 2
+
+
+def test_agent_passes_timeout_and_cancellation_to_provider() -> None:
+    seen = {}
+
+    class FakeProvider:
+        def complete(self, request):
+            seen["timeout"] = request.timeout
+            seen["cancellation_token"] = request.cancellation_token
+            return type("Result", (), {"output": "ok", "raw": None, "metadata": {}})()
+
+    token = CancellationToken()
+    agent = Agent(name="navigator", provider=FakeProvider())
+
+    result = agent.run("Hello", timeout=3, cancellation_token=token)
+
+    assert result.output == "ok"
+    assert seen == {"timeout": 3, "cancellation_token": token}
+
+
+def test_cancelled_provider_request_fails_before_http_call() -> None:
+    token = CancellationToken()
+    token.cancel()
+    provider = OpenAICompatibleProvider(
+        model="test-model",
+        base_url="http://127.0.0.1:1",
+        api_key="test-key",
+    )
+    agent = Agent(name="navigator", provider=provider)
+
+    with pytest.raises(ProviderCancelledError):
+        agent.run("Hello", cancellation_token=token)
+
+
+def test_provider_request_timeout_uses_request_timeout(monkeypatch) -> None:
+    seen = {}
+
+    def fake_urlopen(request, *, timeout):
+        seen["timeout"] = timeout
+        raise TimeoutError()
+
+    monkeypatch.setattr(provider_module, "urlopen", fake_urlopen)
+    provider = OpenAICompatibleProvider(
+        model="test-model",
+        base_url="http://127.0.0.1:1",
+        api_key="test-key",
+        timeout=60,
+    )
+    agent = Agent(name="navigator", provider=provider)
+
+    with pytest.raises(ProviderTimeoutError):
+        agent.run("Hello", timeout=0.25)
+
+    assert seen["timeout"] == 0.25

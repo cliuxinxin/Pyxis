@@ -33,9 +33,9 @@ Role-bound execution body with provider, tools, memory, and response style.
 Stable surface:
 
 - `Agent(name, instructions="", provider=..., tools=..., memory=..., response_style=...)`
-- `run(prompt, *, context=None) -> AgentResult`
-- `stream(prompt, *, context=None) -> Iterator[CompletionChunk]`
-- `completion_request(prompt, *, context=None) -> CompletionRequest`
+- `run(prompt, *, context=None, timeout=None, cancellation_token=None) -> AgentResult`
+- `stream(prompt, *, context=None, timeout=None, cancellation_token=None) -> Iterator[CompletionChunk]`
+- `completion_request(prompt, *, context=None, timeout=None, cancellation_token=None) -> CompletionRequest`
 - `get_tool(name) -> Tool | None`
 - `tool_manifest() -> list[dict]`
 - `system_instructions() -> str`
@@ -150,8 +150,13 @@ Stable surface:
 - Optional `stream(request: CompletionRequest) -> Iterator[CompletionChunk]`
 
 `CompletionRequest`, `CompletionResult`, and `CompletionChunk` are public data
-objects. Providers should raise `ProviderConfigurationError` for missing local
-configuration and `ProviderRequestError` for request or response failures.
+objects. `CompletionRequest` includes `timeout` and `cancellation_token`.
+`CompletionResult` and `CompletionChunk` include `usage` and `finish_reason`.
+
+Providers should raise `ProviderConfigurationError` for missing local
+configuration, `ProviderRequestError` for request or response failures,
+`ProviderTimeoutError` for timeouts, and `ProviderCancelledError` for cancelled
+requests.
 
 ## Public Exceptions
 
@@ -159,7 +164,8 @@ configuration and `ProviderRequestError` for request or response failures.
 - `ToolExecutionError`: user tool code raised during execution.
 - `ToolNotFound`: requested tool is not registered on the agent.
 - `CheckpointNotFound`, `CheckpointNotApproved`, `CheckpointRejected`.
-- `ProviderConfigurationError`, `ProviderRequestError`.
+- `ProviderConfigurationError`, `ProviderRequestError`, `ProviderTimeoutError`,
+  `ProviderCancelledError`.
 - `SnapshotRestoreError`: a snapshot cannot be restored with the provided
   catalog.
 

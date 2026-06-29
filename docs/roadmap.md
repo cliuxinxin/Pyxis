@@ -23,11 +23,11 @@ workflows.
 - `pyxis demo` and Pi-like guided planning example.
 - Concept documentation for sessions, checkpoints, tool actions, and workflows.
 - Snapshot restore through registered callable catalogs.
+- Provider contract fields for usage, finish reasons, timeout, and cancellation.
 
 ## Near-Term
 
-- Provider contract finalization for finish reasons, cancellation, and retry
-  semantics.
+- Provider contract finalization for stream retry semantics.
 - Policy matrix for approval mode, action allow/deny lists, and risk overrides.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
 - More detailed workflow step events.
