@@ -20,6 +20,8 @@ workflows.
   scratchpad state.
 - Reflective workflow steps for ask, reflect, and revise loops.
 - Provider-native token streaming for OpenAI-compatible providers.
+- `pyxis demo` and Pi-like guided planning example.
+- Concept documentation for sessions, checkpoints, tool actions, and workflows.
 
 ## Near-Term
 
@@ -27,6 +29,7 @@ workflows.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
 - More detailed workflow step events.
 - Custom snapshot redaction policies beyond the current default redaction keys.
+- Versioned release automation beyond the current manual checklist.
 
 ## Later
 

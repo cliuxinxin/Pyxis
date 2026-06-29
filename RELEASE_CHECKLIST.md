@@ -6,7 +6,7 @@ Use this checklist before publishing Pyxis.
 
 - Package: `pyxis-ai`
 - Import name: `pyxis`
-- Current version: `0.1.0`
+- Current version: `0.1.1`
 - Status: release candidate
 
 ## Required Checks
@@ -28,17 +28,18 @@ rg "<legacy-custom-env-prefix>|sk-|<known-secret-fragment>" .
 Inspect built artifacts:
 
 ```bash
-python3 -m zipfile --list dist/pyxis_ai-0.1.0-py3-none-any.whl
-tar -tzf dist/pyxis_ai-0.1.0.tar.gz
+python3 -m zipfile --list dist/pyxis_ai-0.1.1-py3-none-any.whl
+tar -tzf dist/pyxis_ai-0.1.1.tar.gz
 ```
 
 Install the wheel in a clean environment and smoke test imports and CLI:
 
 ```bash
 python3 -m venv /tmp/pyxis-release-check
-/tmp/pyxis-release-check/bin/python -m pip install dist/pyxis_ai-0.1.0-py3-none-any.whl
+/tmp/pyxis-release-check/bin/python -m pip install dist/pyxis_ai-0.1.1-py3-none-any.whl
 /tmp/pyxis-release-check/bin/python -c "import pyxis; print(pyxis.Pyxis)"
 /tmp/pyxis-release-check/bin/pyxis --env-file .env.example doctor
+/tmp/pyxis-release-check/bin/pyxis --env-file missing.env demo
 ```
 
 After pushing to GitHub, confirm the CI workflow passes on `main`.
@@ -52,7 +53,10 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `Session`
 - `Compass`
 - `Checkpoint`
+- `CompletionChunk`
 - `ControlPolicy`
+- `Intent` / `UserGoal` / `Clarification`
+- `SessionMemory` / `UserPreferences` / `ProjectContext`
 - `Tool` / `tool`
 - `Workflow`
 - `MockProvider`
@@ -64,9 +68,10 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 
 - `README.md` explains install, CLI, providers, snapshots, tools, and workflows.
 - `README.zh-CN.md` mirrors the main usage path in Chinese.
-- `CHANGELOG.md` describes the `0.1.0` MVP.
+- `CHANGELOG.md` describes the `0.1.1` release.
 - `CONTRIBUTING.md` documents local development and safety expectations.
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
+- `docs/concepts/` contains session, checkpoint, tool action, and workflow docs.
 - `.github/workflows/ci.yml` runs tests, lint, and build checks.
 
 ## Secret Safety
@@ -80,9 +85,8 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - Snapshot loading is inspection-only and does not restore Python callables.
 - Tool argument schemas are descriptive rather than strongly validated.
 - Provider support targets OpenAI-compatible chat completions APIs.
-- CLI checkpoint approval is not interactive yet.
 
-## 0.1.0 Audit Notes
+## 0.1.1 Audit Notes
 
 The current release candidate has been checked with:
 
@@ -93,4 +97,5 @@ The current release candidate has been checked with:
 - sdist content inspection
 - wheel install in a temporary virtual environment
 - installed `pyxis doctor` smoke test
+- installed `pyxis demo` smoke test
 - local review of `.github/workflows/ci.yml`

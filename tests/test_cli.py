@@ -46,6 +46,21 @@ def test_run_requires_provider_env(monkeypatch, capsys) -> None:
     assert "Missing required environment variable" in captured.err
 
 
+def test_demo_runs_without_provider_env(monkeypatch, capsys) -> None:
+    for name in cli.REQUIRED_OPENAI_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+    code = cli.main(["--env-file", "missing.env", "demo"])
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Pyxis demo" in captured.out
+    assert "Clarification:" in captured.out
+    assert "Checkpoint:" in captured.out
+    assert "Workflow reflection:" in captured.out
+    assert "Memory:" in captured.out
+
+
 def test_run_prints_output_and_saves_snapshot(monkeypatch, tmp_path, capsys) -> None:
     monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost")
     monkeypatch.setenv("OPENAI_API_KEY", "secret-value")

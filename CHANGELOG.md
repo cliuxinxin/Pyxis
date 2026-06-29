@@ -2,6 +2,29 @@
 
 All notable changes to Pyxis will be documented in this file.
 
+## 0.1.1 - 2026-06-29
+
+Human-centered refinement release.
+
+### Added
+
+- Structured dialogue analysis with `Intent`, `UserGoal`, `Clarification`,
+  `TonePolicy`, and `ResponseStyle`.
+- Consent-oriented checkpoint fields: `summary`, `risk_reason`, `preview`, and
+  `options`.
+- Bounded in-process `SessionMemory`, `UserPreferences`, and `ProjectContext`.
+- Reflective workflow steps: `ask()`, `reflect()`, and `revise()`.
+- Provider-native streaming for OpenAI-compatible providers.
+- `pyxis demo` for local no-credential exploration.
+- Concept documentation for sessions, checkpoints, tool actions, and workflows.
+- Pi-like guided planning example.
+
+### Changed
+
+- README reorganized into a shorter entry point with deeper concept docs.
+- Release line moved forward to `0.1.1` instead of moving the existing `v0.1.0`
+  tag.
+
 ## 0.1.0 - 2026-06-29
 
 Initial MVP for a human-centered Python agent harness.

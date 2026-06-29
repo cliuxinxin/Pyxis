@@ -8,7 +8,15 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from pyxis import Agent, OpenAICompatibleProvider, Pyxis
+from pyxis import (
+    Agent,
+    MockProvider,
+    OpenAICompatibleProvider,
+    Pyxis,
+    SessionMemory,
+    Workflow,
+    tool,
+)
 
 DEFAULT_ENV_FILE = Path(".env.local")
 REQUIRED_OPENAI_ENV = ("OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL")
@@ -47,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("doctor", help="Check local provider configuration.")
+    subparsers.add_parser("demo", help="Run a local Pyxis demo without provider credentials.")
 
     run = subparsers.add_parser("run", help="Run one prompt through a provider-backed agent.")
     run.add_argument("prompt", nargs="+", help="Prompt to send to the agent.")
@@ -77,6 +86,60 @@ def cmd_doctor() -> int:
         status = "set" if os.getenv(name) else "missing"
         print(f"{name}: {status}")
     return 1 if missing else 0
+
+
+def cmd_demo() -> int:
+    memory = SessionMemory()
+    memory.set_preference("tone", "concise")
+    memory.set_preference("approval_mode", "strict")
+    memory.set_project_context(name="Pyxis", description="Human-centered agent harness")
+
+    @tool(risk="high", action="file_write")
+    def write_file(path: str, content: str) -> str:
+        """Pretend to write content to a file."""
+
+        return f"would write {len(content)} characters to {path}"
+
+    agent = Agent(
+        name="navigator",
+        instructions="Help the user think clearly before acting.",
+        provider=MockProvider(output="Here is a concise, controllable plan."),
+        tools=[write_file],
+        memory=memory,
+    )
+    session = Pyxis(agent=agent).session()
+
+    print("Pyxis demo")
+    print("----------")
+
+    clarification = session.navigate("帮我弄一下")
+    print(f"Clarification: {clarification.output}")
+
+    plan = session.navigate("Plan a concise research workflow")
+    print(f"Plan: {plan.output}")
+
+    paused_tool = session.call_tool("write_file", "notes.txt", content="hello")
+    if paused_tool.checkpoint:
+        checkpoint = paused_tool.checkpoint
+        print("Checkpoint:")
+        print(f"  Action: {checkpoint.action}")
+        print(f"  Reason: {checkpoint.risk_reason}")
+        print(f"  Preview: {checkpoint.preview}")
+
+    workflow = (
+        Workflow("guided-draft")
+        .step("clean", lambda text: text.strip())
+        .reflect("Check if the output matches the user's goal")
+        .step("finish", lambda text: f"Final: {text}")
+    )
+    paused_workflow = session.run(workflow, "  Pyxis keeps the human in control.  ")
+    if paused_workflow.checkpoint:
+        print("Workflow reflection:")
+        print(f"  {paused_workflow.checkpoint.preview}")
+
+    print("Memory:")
+    print(f"  {memory.to_dict()}")
+    return 0
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -164,6 +227,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "doctor":
         return cmd_doctor()
+    if args.command == "demo":
+        return cmd_demo()
     if args.command == "run":
         return cmd_run(args)
 
