@@ -1,0 +1,17 @@
+"""Pyxis exceptions."""
+
+
+class PyxisError(Exception):
+    """Base error for Pyxis."""
+
+
+class CheckpointRequired(PyxisError):
+    """Raised when an action requires confirmation before it can continue."""
+
+
+class CheckpointRejected(PyxisError):
+    """Raised when a checkpoint is rejected."""
+
+
+class ToolExecutionError(PyxisError):
+    """Raised when a tool fails during execution."""

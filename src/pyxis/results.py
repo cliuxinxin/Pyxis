@@ -1,0 +1,43 @@
+"""Result objects returned by Pyxis operations."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass(frozen=True)
+class AgentResult:
+    """A response produced by an agent."""
+
+    output: str
+    raw: Any = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ToolResult:
+    """A response produced by a tool."""
+
+    name: str
+    output: Any
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class WorkflowResult:
+    """A response produced by a workflow."""
+
+    name: str
+    output: Any
+    steps: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NavigationResult:
+    """The result of one conversational navigation turn."""
+
+    output: str
+    decision: str
+    metadata: dict[str, Any] = field(default_factory=dict)
