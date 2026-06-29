@@ -52,6 +52,30 @@ session.save_snapshot("session-audit.json", redact=True)
 Use redaction when snapshots may include prompts, tool payloads, provider
 metadata, or memory values that should not be exported in plain text.
 
+Snapshots include metadata:
+
+```python
+print(snapshot["metadata"]["kind"])
+print(snapshot["metadata"]["schema_version"])
+```
+
+Applications can customize redaction:
+
+```python
+from pyxis import SnapshotRedactionPolicy
+
+policy = SnapshotRedactionPolicy(
+    redact_keys={"customer_email", "api_key"},
+    replacement="<hidden>",
+)
+
+session.save_snapshot(
+    "session-audit.json",
+    redact=True,
+    redaction_policy=policy,
+)
+```
+
 ## Restore
 
 Session restore uses an explicit catalog for Python callables:

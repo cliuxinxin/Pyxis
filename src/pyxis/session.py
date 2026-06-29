@@ -22,8 +22,8 @@ from pyxis.errors import (
 from pyxis.events import EventLog, EventType
 from pyxis.policy import ControlPolicy
 from pyxis.results import NavigationResult, StreamEvent, ToolResult, WorkflowResult
-from pyxis.serialization import redact_jsonable, to_jsonable
-from pyxis.snapshots import save_snapshot
+from pyxis.serialization import to_jsonable
+from pyxis.snapshots import SnapshotMetadata, SnapshotRedactionPolicy, save_snapshot
 from pyxis.tools import ToolCall
 from pyxis.workflow import Workflow, WorkflowStepKind
 
@@ -531,10 +531,16 @@ class Session:
                 return checkpoint
         raise CheckpointNotFound(f"Checkpoint {checkpoint_id!r} was not found.")
 
-    def snapshot(self, *, redact: bool = False) -> dict[str, Any]:
+    def snapshot(
+        self,
+        *,
+        redact: bool = False,
+        redaction_policy: SnapshotRedactionPolicy | None = None,
+    ) -> dict[str, Any]:
         """Return a JSON-safe audit snapshot of the session."""
 
         snapshot = {
+            "metadata": SnapshotMetadata().to_dict(),
             "agent": {
                 "name": self.agent.name,
                 "tools": self.agent.tool_manifest(),
@@ -553,7 +559,8 @@ class Session:
             },
         }
         if redact:
-            return redact_jsonable(snapshot)
+            policy = redaction_policy or SnapshotRedactionPolicy.default()
+            return policy.apply(snapshot)
         return snapshot
 
     def _memory_snapshot(self) -> dict[str, Any]:
@@ -562,10 +569,19 @@ class Session:
             return to_jsonable(to_dict())
         return {}
 
-    def save_snapshot(self, path: str | Path, *, redact: bool = False) -> Path:
+    def save_snapshot(
+        self,
+        path: str | Path,
+        *,
+        redact: bool = False,
+        redaction_policy: SnapshotRedactionPolicy | None = None,
+    ) -> Path:
         """Save the current session snapshot to a JSON file."""
 
-        return save_snapshot(self.snapshot(redact=redact), path)
+        return save_snapshot(
+            self.snapshot(redact=redact, redaction_policy=redaction_policy),
+            path,
+        )
 
     def run(self, workflow: Workflow, value: Any) -> WorkflowResult:
         self.events.emit(EventType.WORKFLOW_STARTED, workflow=workflow.name)

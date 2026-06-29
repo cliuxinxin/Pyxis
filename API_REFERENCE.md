@@ -55,8 +55,8 @@ Stable surface:
 - `resume_checkpoint(checkpoint_id) -> ToolResult`
 - `run(workflow, value) -> WorkflowResult`
 - `resume_workflow(checkpoint_id) -> WorkflowResult`
-- `snapshot(*, redact=False) -> dict`
-- `save_snapshot(path, *, redact=False) -> Path`
+- `snapshot(*, redact=False, redaction_policy=None) -> dict`
+- `save_snapshot(path, *, redact=False, redaction_policy=None) -> Path`
 
 ### Snapshot Restore
 
@@ -64,13 +64,19 @@ Snapshots can be restored through an explicit callable catalog.
 
 Stable surface:
 
+- `SnapshotMetadata(kind="pyxis.session", schema_version=1)`
+- `SnapshotRedactionPolicy(redact_keys=..., replacement="[REDACTED]")`
 - `SnapshotRestoreCatalog(tools=..., workflows=..., provider=None, memory=None, instructions="")`
 - `SnapshotRestoreCatalog.register_tool(tool) -> SnapshotRestoreCatalog`
 - `SnapshotRestoreCatalog.register_workflow(workflow) -> SnapshotRestoreCatalog`
+- `snapshot_metadata(snapshot) -> SnapshotMetadata`
 - `restore_session(snapshot, *, catalog=None) -> Session`
 
 Pyxis does not import arbitrary callables from a snapshot. Tools and workflows
 must be registered by name. Missing registrations raise `SnapshotRestoreError`.
+Snapshots include version metadata so future formats can fail clearly instead
+of restoring incorrectly. Redaction policies can customize which snapshot keys
+are replaced before export.
 
 ### `Tool`
 

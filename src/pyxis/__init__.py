@@ -56,7 +56,16 @@ from pyxis.providers import (
 from pyxis.pyxis import Pyxis
 from pyxis.results import AgentResult, NavigationResult, StreamEvent, ToolResult, WorkflowResult
 from pyxis.session import Session
-from pyxis.snapshots import SnapshotRestoreCatalog, load_snapshot, restore_session, save_snapshot
+from pyxis.snapshots import (
+    SNAPSHOT_SCHEMA_VERSION,
+    SnapshotMetadata,
+    SnapshotRedactionPolicy,
+    SnapshotRestoreCatalog,
+    load_snapshot,
+    restore_session,
+    save_snapshot,
+    snapshot_metadata,
+)
 from pyxis.tools import Tool, ToolCall, tool
 from pyxis.workflow import Workflow
 
@@ -108,6 +117,9 @@ __all__ = [
     "ResponseStyle",
     "Session",
     "SessionMemory",
+    "SNAPSHOT_SCHEMA_VERSION",
+    "SnapshotMetadata",
+    "SnapshotRedactionPolicy",
     "SnapshotRestoreCatalog",
     "SnapshotRestoreError",
     "StreamEvent",
@@ -126,5 +138,6 @@ __all__ = [
     "parse_agent_action",
     "restore_session",
     "save_snapshot",
+    "snapshot_metadata",
     "tool",
 ]

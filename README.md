@@ -32,7 +32,7 @@ interruptible, and extensible.
   and `revise()`.
 - OpenAI-compatible provider support with standard `OPENAI_*` environment
   variables and provider-native streaming.
-- JSON-safe snapshots with optional redaction.
+- JSON-safe snapshots with schema metadata and configurable redaction.
 - Snapshot restore through explicit tool and workflow catalogs.
 - CLI commands for `doctor`, `run`, `inspect`, `memory`, `workflow`, and local
   `demo`.

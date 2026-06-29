@@ -30,12 +30,12 @@ workflows.
   checkpoint options.
 - Stable event schemas for provider, tool, checkpoint, policy, workflow, and
   session restore observability.
+- Snapshot metadata schema versioning and custom redaction policies.
 
 ## Near-Term
 
 - Provider contract finalization for stream retry semantics.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
-- Custom snapshot redaction policies beyond the current default redaction keys.
 - Versioned release automation beyond the current manual checklist.
 
 ## 1.0 Readiness

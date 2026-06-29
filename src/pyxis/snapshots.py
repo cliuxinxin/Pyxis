@@ -14,8 +14,46 @@ from pyxis.errors import SnapshotRestoreError
 from pyxis.events import Event, EventLog, EventType
 from pyxis.memory import Memory, ProjectContext, SessionMemory, UserPreferences
 from pyxis.providers import MockProvider, Provider
+from pyxis.serialization import DEFAULT_REDACT_KEYS, redact_jsonable
 from pyxis.tools import Tool, ToolCall
 from pyxis.workflow import Workflow
+
+SNAPSHOT_SCHEMA_VERSION = 1
+SNAPSHOT_KIND = "pyxis.session"
+
+
+@dataclass(frozen=True)
+class SnapshotMetadata:
+    """Version metadata stored with every Pyxis session snapshot."""
+
+    kind: str = SNAPSHOT_KIND
+    schema_version: int = SNAPSHOT_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "schema_version": self.schema_version,
+        }
+
+
+@dataclass(frozen=True)
+class SnapshotRedactionPolicy:
+    """Redaction policy for exported snapshots."""
+
+    redact_keys: set[str] = field(default_factory=lambda: set(DEFAULT_REDACT_KEYS))
+    replacement: str = "[REDACTED]"
+
+    @classmethod
+    def default(cls) -> SnapshotRedactionPolicy:
+        return cls()
+
+    def apply(self, snapshot: dict[str, Any]) -> dict[str, Any]:
+        redacted = redact_jsonable(
+            snapshot,
+            redact_keys=set(self.redact_keys),
+            replacement=self.replacement,
+        )
+        return redacted if isinstance(redacted, dict) else {}
 
 
 @dataclass
@@ -58,6 +96,24 @@ def load_snapshot(path: str | Path) -> dict[str, Any]:
     return loaded
 
 
+def snapshot_metadata(snapshot: dict[str, Any]) -> SnapshotMetadata:
+    """Return snapshot metadata, defaulting legacy snapshots to schema v1."""
+
+    metadata = snapshot.get("metadata")
+    if metadata is None:
+        return SnapshotMetadata()
+    data = _require_dict(metadata, "metadata")
+    kind = data.get("kind") or SNAPSHOT_KIND
+    if not isinstance(kind, str):
+        raise SnapshotRestoreError("Snapshot field metadata.kind must be a string.")
+    try:
+        schema_version = int(data.get("schema_version") or SNAPSHOT_SCHEMA_VERSION)
+    except (TypeError, ValueError) as exc:
+        message = "Snapshot field metadata.schema_version must be an integer."
+        raise SnapshotRestoreError(message) from exc
+    return SnapshotMetadata(kind=kind, schema_version=schema_version)
+
+
 def restore_session(
     snapshot: dict[str, Any],
     *,
@@ -67,6 +123,14 @@ def restore_session(
 
     from pyxis.agent import Agent
     from pyxis.session import PendingWorkflow, Session
+
+    metadata = snapshot_metadata(snapshot)
+    if metadata.kind != SNAPSHOT_KIND:
+        raise SnapshotRestoreError(f"Unsupported snapshot kind {metadata.kind!r}.")
+    if metadata.schema_version > SNAPSHOT_SCHEMA_VERSION:
+        raise SnapshotRestoreError(
+            f"Unsupported snapshot schema version {metadata.schema_version}."
+        )
 
     restore_catalog = catalog or SnapshotRestoreCatalog()
     agent_snapshot = _require_dict(snapshot.get("agent"), "agent")

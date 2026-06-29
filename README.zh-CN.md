@@ -280,7 +280,8 @@ print(snapshot["checkpoints"])
 
 Snapshot 包含 dialogue、events、checkpoints、pending tool calls 和 pending
 workflows。配合显式注册的 callable catalog，可以恢复 session 并继续 pending
-tool call 或 workflow。
+tool call 或 workflow。Snapshot 也包含 `metadata.kind` 和
+`metadata.schema_version`，方便后续格式演进时明确兼容边界。
 
 也可以保存和读取审计快照：
 
@@ -295,6 +296,19 @@ snapshot = load_snapshot("session-audit.json")
 
 ```python
 session.save_snapshot("session-audit.json", redact=True)
+```
+
+也可以自定义 redaction policy：
+
+```python
+from pyxis import SnapshotRedactionPolicy
+
+policy = SnapshotRedactionPolicy(
+    redact_keys={"customer_email", "api_key"},
+    replacement="<hidden>",
+)
+
+session.save_snapshot("session-audit.json", redact=True, redaction_policy=policy)
 ```
 
 ## 当前状态

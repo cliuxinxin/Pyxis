@@ -71,6 +71,8 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `ProviderTimeoutError` / `ProviderCancelledError`
 - `PolicyDeniedError`
 - `load_snapshot` / `save_snapshot`
+- `snapshot_metadata`
+- `SnapshotMetadata` / `SnapshotRedactionPolicy`
 - `restore_session` / `SnapshotRestoreCatalog`
 - `parse_agent_action`
 

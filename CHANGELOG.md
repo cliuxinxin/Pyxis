@@ -18,6 +18,7 @@ All notable changes to Pyxis will be documented in this file.
   policy, and session restore observability.
 - CLI commands for snapshot inspection, local memory show/clear, streaming runs,
   and workflow demos.
+- Snapshot metadata schema versioning and customizable redaction policies.
 - Tool argument validation for required parameters, unexpected parameters,
   defaults, common annotations, and `typing.Literal`.
 - Public `ToolValidationError` for invalid tool calls.
