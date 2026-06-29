@@ -16,7 +16,7 @@ workflows.
 
 ## Near-Term
 
-- Streaming provider responses and session events.
+- Provider-native token streaming beyond the current turn-level session events.
 - Stronger tool argument validation beyond the current signature-derived schema.
 - Retry and timeout policy for providers and tools.
 - More detailed workflow step events.

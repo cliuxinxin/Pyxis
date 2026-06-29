@@ -124,6 +124,15 @@ PYTHONPATH=src python3 examples/basic_openai_compatible.py
 示例会读取 `.env.local`，调用配置好的 OpenAI-compatible provider，并打印 Agent
 返回结果。
 
+Session 也可以输出高层 stream events：
+
+```python
+for event in session.stream("帮我规划一个竞品研究流程"):
+    print(event.type, event.data)
+```
+
+当前 stream API 输出的是 turn-level events，provider 原生 token streaming 可以后续再接。
+
 如果想测试真实模型是否会遵循 Pyxis tool-call JSON 协议，可以运行：
 
 ```bash

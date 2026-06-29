@@ -14,7 +14,7 @@ from pyxis.dialogue import Dialogue
 from pyxis.errors import CheckpointNotApproved, CheckpointNotFound, CheckpointRejected, ToolNotFound
 from pyxis.events import EventLog
 from pyxis.policy import ControlPolicy
-from pyxis.results import NavigationResult, ToolResult, WorkflowResult
+from pyxis.results import NavigationResult, StreamEvent, ToolResult, WorkflowResult
 from pyxis.serialization import to_jsonable
 from pyxis.snapshots import save_snapshot
 from pyxis.tools import ToolCall
@@ -89,6 +89,41 @@ class Session:
         self.dialogue.add("agent", output)
         self.events.emit("AgentResponded", content=output)
         return NavigationResult(output=output, decision=decision.type.value, metadata=metadata)
+
+    def stream(
+        self,
+        user_input: str,
+        *,
+        requires_confirmation: bool = False,
+    ):
+        """Yield high-level events for one navigation turn."""
+
+        yield StreamEvent(
+            type="start",
+            data={"input": user_input},
+        )
+        result = self.navigate(user_input, requires_confirmation=requires_confirmation)
+        yield StreamEvent(
+            type="result",
+            data={
+                "output": result.output,
+                "decision": result.decision,
+                "metadata": to_jsonable(result.metadata),
+            },
+        )
+
+        tool_result = result.metadata.get("tool_result")
+        if tool_result and getattr(tool_result, "requires_confirmation", False):
+            checkpoint = getattr(tool_result, "checkpoint", None)
+            yield StreamEvent(
+                type="checkpoint",
+                data={
+                    "checkpoint": checkpoint.to_dict() if checkpoint else None,
+                    "tool": getattr(tool_result, "name", None),
+                },
+            )
+
+        yield StreamEvent(type="done", data={"output": result.output})
 
     def _handle_agent_output(self, output: str) -> tuple[str, dict[str, Any]]:
         action = parse_agent_action(output)

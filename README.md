@@ -199,6 +199,16 @@ print(result.output)
 The `Compass` chooses the next move. A request might become a plan, a direct
 agent response, a clarification question, or a checkpoint.
 
+Sessions can also expose high-level stream events:
+
+```python
+for event in session.stream("帮我规划一个竞品研究流程"):
+    print(event.type, event.data)
+```
+
+The current stream API yields turn-level events. Provider-native token streaming
+can be layered on later.
+
 ## Tools
 
 ```python

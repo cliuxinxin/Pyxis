@@ -9,7 +9,7 @@ from pyxis.memory import InMemory, Memory, NoMemory
 from pyxis.policy import ControlPolicy
 from pyxis.providers import MockProvider, OpenAICompatibleProvider, Provider
 from pyxis.pyxis import Pyxis
-from pyxis.results import AgentResult, NavigationResult, ToolResult, WorkflowResult
+from pyxis.results import AgentResult, NavigationResult, StreamEvent, ToolResult, WorkflowResult
 from pyxis.session import Session
 from pyxis.snapshots import load_snapshot, save_snapshot
 from pyxis.tools import Tool, ToolCall, tool
@@ -37,6 +37,7 @@ __all__ = [
     "Provider",
     "Pyxis",
     "Session",
+    "StreamEvent",
     "Tool",
     "ToolCall",
     "ToolResult",

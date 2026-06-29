@@ -49,3 +49,11 @@ class NavigationResult:
     output: str
     decision: str
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class StreamEvent:
+    """A high-level event yielded by session streaming."""
+
+    type: str
+    data: dict[str, Any] = field(default_factory=dict)
