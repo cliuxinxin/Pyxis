@@ -42,7 +42,7 @@ for event in session.stream("Draft a concise plan"):
 
 ## Snapshots
 
-Sessions can produce JSON-safe snapshots for inspection:
+Sessions can produce JSON-safe snapshots for inspection or restore:
 
 ```python
 snapshot = session.snapshot(redact=True)
@@ -51,3 +51,23 @@ session.save_snapshot("session-audit.json", redact=True)
 
 Use redaction when snapshots may include prompts, tool payloads, provider
 metadata, or memory values that should not be exported in plain text.
+
+## Restore
+
+Session restore uses an explicit catalog for Python callables:
+
+```python
+from pyxis import SnapshotRestoreCatalog, load_snapshot, restore_session
+
+snapshot = load_snapshot("session-audit.json")
+catalog = SnapshotRestoreCatalog(
+    tools={"write_file": write_file},
+    workflows={"draft": draft_workflow},
+)
+
+session = restore_session(snapshot, catalog=catalog)
+```
+
+Pyxis restores pending tool calls and workflows by name. It does not import
+arbitrary callables from the snapshot, so missing tools or workflows raise
+`SnapshotRestoreError`.

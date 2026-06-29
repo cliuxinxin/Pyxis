@@ -2,7 +2,19 @@ import json
 
 import pytest
 
-from pyxis import Agent, MockProvider, Pyxis, Workflow, load_snapshot, save_snapshot, tool
+from pyxis import (
+    Agent,
+    MockProvider,
+    Pyxis,
+    SessionMemory,
+    SnapshotRestoreCatalog,
+    Workflow,
+    load_snapshot,
+    restore_session,
+    save_snapshot,
+    tool,
+)
+from pyxis.errors import SnapshotRestoreError
 
 
 def test_session_snapshot_is_json_serializable() -> None:
@@ -105,3 +117,84 @@ def test_session_save_snapshot_can_redact(tmp_path) -> None:
     loaded = load_snapshot(path)
 
     assert loaded["dialogue"]["messages"][0]["content"] == "[REDACTED]"
+
+
+def test_restore_session_can_resume_pending_tool_call() -> None:
+    calls: list[tuple[str, str]] = []
+
+    @tool(risk="high", action="file_write")
+    def write_file(path: str, content: str) -> str:
+        calls.append((path, content))
+        return f"wrote {path}"
+
+    memory = SessionMemory()
+    memory.set_preference("tone", "concise")
+    session = Pyxis(agent=Agent(name="navigator", tools=[write_file], memory=memory)).session()
+    paused = session.call_tool("write_file", "demo.txt", content="hello")
+    assert paused.checkpoint is not None
+    snapshot = session.snapshot()
+
+    restored = restore_session(
+        snapshot,
+        catalog=SnapshotRestoreCatalog(tools={"write_file": write_file}),
+    )
+
+    assert restored.agent.name == "navigator"
+    assert restored.agent.memory.to_dict()["preferences"] == {"tone": "concise"}
+    assert restored.checkpoints[0].id == paused.checkpoint.id
+    assert paused.checkpoint.id in restored.pending_tool_calls
+    event_types = [event.type for event in restored.events]
+    assert "ToolCallPaused" in event_types
+    assert event_types[-1] == "SessionRestored"
+
+    restored.approve_checkpoint(paused.checkpoint.id)
+    result = restored.resume_checkpoint(paused.checkpoint.id)
+
+    assert result.output == "wrote demo.txt"
+    assert calls == [("demo.txt", "hello")]
+    assert paused.checkpoint.id not in restored.pending_tool_calls
+
+
+def test_restore_session_can_resume_pending_workflow() -> None:
+    workflow = (
+        Workflow("draft")
+        .step("clean", lambda value: value.strip())
+        .checkpoint("Review cleaned text.", name="review")
+        .step("finish", lambda value: f"Done: {value}")
+    )
+    session = Pyxis(agent=Agent(name="navigator")).session()
+    paused = session.run(workflow, "  Pyxis  ")
+    assert paused.checkpoint is not None
+
+    restored = restore_session(
+        session.snapshot(),
+        catalog=SnapshotRestoreCatalog(workflows={"draft": workflow}),
+    )
+
+    assert paused.checkpoint.id in restored.pending_workflows
+    restored.approve_checkpoint(paused.checkpoint.id)
+    result = restored.resume_workflow(paused.checkpoint.id)
+
+    assert result.output == "Done: Pyxis"
+    assert result.steps == ["clean", "finish"]
+
+
+def test_restore_session_requires_registered_pending_tool() -> None:
+    @tool(risk="high", action="file_write")
+    def write_file(path: str) -> str:
+        return path
+
+    session = Pyxis(agent=Agent(name="navigator", tools=[write_file])).session()
+    session.call_tool("write_file", "demo.txt")
+
+    with pytest.raises(SnapshotRestoreError, match="requires tool 'write_file'"):
+        restore_session(session.snapshot(), catalog=SnapshotRestoreCatalog())
+
+
+def test_restore_session_requires_registered_pending_workflow() -> None:
+    workflow = Workflow("draft").checkpoint("Review.")
+    session = Pyxis(agent=Agent(name="navigator")).session()
+    session.run(workflow, "Pyxis")
+
+    with pytest.raises(SnapshotRestoreError, match="requires workflow 'draft'"):
+        restore_session(session.snapshot(), catalog=SnapshotRestoreCatalog())

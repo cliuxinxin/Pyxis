@@ -22,10 +22,10 @@ workflows.
 - Provider-native token streaming for OpenAI-compatible providers.
 - `pyxis demo` and Pi-like guided planning example.
 - Concept documentation for sessions, checkpoints, tool actions, and workflows.
+- Snapshot restore through registered callable catalogs.
 
 ## Near-Term
 
-- Snapshot restore through registered callable catalogs.
 - Provider contract finalization for finish reasons, cancellation, and retry
   semantics.
 - Policy matrix for approval mode, action allow/deny lists, and risk overrides.

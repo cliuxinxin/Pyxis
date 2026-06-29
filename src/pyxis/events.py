@@ -39,6 +39,9 @@ class EventLog:
         self._events.append(event)
         return event
 
+    def append(self, event: Event) -> None:
+        self._events.append(event)
+
     def all(self) -> list[Event]:
         return list(self._events)
 

@@ -58,6 +58,20 @@ Stable surface:
 - `snapshot(*, redact=False) -> dict`
 - `save_snapshot(path, *, redact=False) -> Path`
 
+### Snapshot Restore
+
+Snapshots can be restored through an explicit callable catalog.
+
+Stable surface:
+
+- `SnapshotRestoreCatalog(tools=..., workflows=..., provider=None, memory=None, instructions="")`
+- `SnapshotRestoreCatalog.register_tool(tool) -> SnapshotRestoreCatalog`
+- `SnapshotRestoreCatalog.register_workflow(workflow) -> SnapshotRestoreCatalog`
+- `restore_session(snapshot, *, catalog=None) -> Session`
+
+Pyxis does not import arbitrary callables from a snapshot. Tools and workflows
+must be registered by name. Missing registrations raise `SnapshotRestoreError`.
+
 ### `Tool`
 
 Callable capability exposed to agents.
@@ -146,6 +160,8 @@ configuration and `ProviderRequestError` for request or response failures.
 - `ToolNotFound`: requested tool is not registered on the agent.
 - `CheckpointNotFound`, `CheckpointNotApproved`, `CheckpointRejected`.
 - `ProviderConfigurationError`, `ProviderRequestError`.
+- `SnapshotRestoreError`: a snapshot cannot be restored with the provided
+  catalog.
 
 ## Deprecation Process
 

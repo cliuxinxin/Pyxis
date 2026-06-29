@@ -8,6 +8,8 @@ All notable changes to Pyxis will be documented in this file.
 
 - Initial `API_REFERENCE.md` with public API surface, compatibility policy, and
   deprecation process.
+- Snapshot restore with `SnapshotRestoreCatalog` and `restore_session()` for
+  registered tools and workflows.
 - Tool argument validation for required parameters, unexpected parameters,
   defaults, common annotations, and `typing.Literal`.
 - Public `ToolValidationError` for invalid tool calls.

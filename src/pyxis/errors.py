@@ -39,3 +39,7 @@ class ProviderConfigurationError(PyxisError):
 
 class ProviderRequestError(PyxisError):
     """Raised when a provider request fails."""
+
+
+class SnapshotRestoreError(PyxisError):
+    """Raised when a session snapshot cannot be restored."""

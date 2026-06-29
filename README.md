@@ -33,6 +33,7 @@ interruptible, and extensible.
 - OpenAI-compatible provider support with standard `OPENAI_*` environment
   variables and provider-native streaming.
 - JSON-safe snapshots with optional redaction.
+- Snapshot restore through explicit tool and workflow catalogs.
 - CLI commands for `doctor`, `run`, and local `demo`.
 
 ## Install
