@@ -340,6 +340,7 @@ class Session:
             "agent": {
                 "name": self.agent.name,
                 "tools": self.agent.tool_manifest(),
+                "memory": self._memory_snapshot(),
             },
             "dialogue": self.dialogue.to_dict(),
             "events": self.events.to_list(),
@@ -356,6 +357,12 @@ class Session:
         if redact:
             return redact_jsonable(snapshot)
         return snapshot
+
+    def _memory_snapshot(self) -> dict[str, Any]:
+        to_dict = getattr(self.agent.memory, "to_dict", None)
+        if callable(to_dict):
+            return to_jsonable(to_dict())
+        return {}
 
     def save_snapshot(self, path: str | Path, *, redact: bool = False) -> Path:
         """Save the current session snapshot to a JSON file."""

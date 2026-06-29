@@ -16,10 +16,11 @@ workflows.
 - Structured dialogue analysis with intent, goal, clarification, constraints,
   preferences, and response styling.
 - Consent-oriented checkpoint details and CLI approval prompts.
+- Bounded in-process memory for user preferences, project context, and
+  scratchpad state.
 
 ## Near-Term
 
-- Bounded memory primitives for user preferences and project context.
 - Reflective workflow steps for ask, reflect, and revise loops.
 - Provider-native token streaming beyond the current turn-level session events.
 - Stronger tool argument validation beyond the current signature-derived schema.

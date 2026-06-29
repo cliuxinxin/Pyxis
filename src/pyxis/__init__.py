@@ -14,7 +14,14 @@ from pyxis.dialogue import (
     UserGoal,
 )
 from pyxis.events import Event, EventLog
-from pyxis.memory import InMemory, Memory, NoMemory
+from pyxis.memory import (
+    InMemory,
+    Memory,
+    NoMemory,
+    ProjectContext,
+    SessionMemory,
+    UserPreferences,
+)
 from pyxis.policy import ControlPolicy
 from pyxis.providers import MockProvider, OpenAICompatibleProvider, Provider
 from pyxis.pyxis import Pyxis
@@ -49,15 +56,18 @@ __all__ = [
     "NoMemory",
     "OpenAICompatibleProvider",
     "Provider",
+    "ProjectContext",
     "Pyxis",
     "ResponseStyle",
     "Session",
+    "SessionMemory",
     "StreamEvent",
     "Tool",
     "ToolCall",
     "ToolResult",
     "TonePolicy",
     "UserGoal",
+    "UserPreferences",
     "Workflow",
     "WorkflowResult",
     "load_snapshot",

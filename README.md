@@ -31,6 +31,8 @@ extensible.
   user wants before the agent acts.
 - `ResponseStyle`: lightweight response shaping for calm, concise, supportive
   output.
+- `SessionMemory`: bounded, inspectable memory for preferences and project
+  context.
 - `Checkpoint`: a human confirmation point before sensitive actions.
 - `ControlPolicy`: rules for what can run automatically and what needs review.
 - `Agent`: the role-bound execution body.
@@ -49,6 +51,8 @@ extensible.
 - Minimal CLI for configuration checks and one-off runs.
 - Structured dialogue analysis that favors clarification before action when a
   request is underspecified.
+- Bounded in-process memory for user preferences, project context, and
+  temporary scratchpad state.
 
 ## Install
 
@@ -146,6 +150,29 @@ Use redaction when exporting snapshots that may contain sensitive payloads:
 ```python
 session.save_snapshot("session-audit.json", redact=True)
 ```
+
+## Memory With Boundaries
+
+Pyxis keeps memory explicit and inspectable. It does not require a vector
+database or persist sensitive content by default.
+
+```python
+from pyxis import Agent, Pyxis, SessionMemory
+
+memory = SessionMemory()
+memory.set_preference("tone", "concise")
+memory.set_preference("approval_mode", "strict")
+memory.set_project_context(name="Pyxis", description="Python agent harness")
+
+session = Pyxis(agent=Agent(name="navigator", memory=memory)).session()
+
+print(memory.to_dict())
+memory.clear_preferences("tone")
+memory.clear_project_context()
+```
+
+Snapshots include bounded memory so users can inspect what Pyxis is carrying
+forward. Redacted snapshots continue to protect sensitive keys.
 
 ## OpenAI-Compatible Providers
 
