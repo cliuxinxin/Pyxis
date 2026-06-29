@@ -6,12 +6,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pyxis.agent import Agent
-from pyxis.checkpoint import Checkpoint
+from pyxis.checkpoint import Checkpoint, CheckpointStatus
 from pyxis.compass import Compass, CompassDecisionType
 from pyxis.dialogue import Dialogue
+from pyxis.errors import CheckpointNotApproved, CheckpointNotFound, CheckpointRejected, ToolNotFound
 from pyxis.events import EventLog
 from pyxis.policy import ControlPolicy
-from pyxis.results import NavigationResult, WorkflowResult
+from pyxis.results import NavigationResult, ToolResult, WorkflowResult
+from pyxis.tools import ToolCall
 from pyxis.workflow import Workflow
 
 
@@ -25,6 +27,7 @@ class Session:
     dialogue: Dialogue = field(default_factory=Dialogue)
     events: EventLog = field(default_factory=EventLog)
     checkpoints: list[Checkpoint] = field(default_factory=list)
+    pending_tool_calls: dict[str, ToolCall] = field(default_factory=dict)
 
     def navigate(self, user_input: str, *, requires_confirmation: bool = False) -> NavigationResult:
         self.dialogue.add("user", user_input)
@@ -78,6 +81,96 @@ class Session:
             action=action,
         )
         return checkpoint
+
+    def call_tool(self, name: str, *args: Any, **kwargs: Any) -> ToolResult:
+        tool = self.agent.get_tool(name)
+        if tool is None:
+            raise ToolNotFound(f"Agent {self.agent.name!r} does not have tool {name!r}.")
+
+        action = tool.action or "tool_call"
+        call = ToolCall(
+            name=tool.name,
+            args=args,
+            kwargs=kwargs,
+            risk=tool.risk,
+            action=action,
+        )
+        self.events.emit(
+            "ToolCallRequested",
+            tool=call.name,
+            action=call.action,
+            risk=call.risk,
+        )
+
+        if self.policy.requires_confirmation(action=call.action, risk=call.risk):
+            checkpoint = self.checkpoint(
+                reason=f"Tool {call.name!r} requires confirmation before execution.",
+                action=call.action,
+                payload={
+                    "kind": "tool_call",
+                    "tool": call.name,
+                    "args": list(call.args),
+                    "kwargs": call.kwargs,
+                    "risk": call.risk,
+                },
+            )
+            self.pending_tool_calls[checkpoint.id] = call
+            self.events.emit(
+                "ToolCallPaused",
+                tool=call.name,
+                checkpoint_id=checkpoint.id,
+            )
+            return ToolResult(
+                name=call.name,
+                requires_confirmation=True,
+                checkpoint=checkpoint,
+                metadata={"risk": call.risk, "action": call.action},
+            )
+
+        result = tool(*call.args, **call.kwargs)
+        self.events.emit("ToolCallCompleted", tool=call.name)
+        return result
+
+    def approve_checkpoint(self, checkpoint_id: str) -> Checkpoint:
+        checkpoint = self.get_checkpoint(checkpoint_id)
+        checkpoint.approve()
+        self.events.emit("CheckpointApproved", checkpoint_id=checkpoint.id)
+        return checkpoint
+
+    def reject_checkpoint(self, checkpoint_id: str) -> Checkpoint:
+        checkpoint = self.get_checkpoint(checkpoint_id)
+        checkpoint.reject()
+        self.events.emit("CheckpointRejected", checkpoint_id=checkpoint.id)
+        return checkpoint
+
+    def resume_checkpoint(self, checkpoint_id: str) -> ToolResult:
+        checkpoint = self.get_checkpoint(checkpoint_id)
+        if checkpoint.status == CheckpointStatus.REJECTED:
+            raise CheckpointRejected(f"Checkpoint {checkpoint_id!r} was rejected.")
+        if checkpoint.status != CheckpointStatus.APPROVED:
+            raise CheckpointNotApproved(f"Checkpoint {checkpoint_id!r} is not approved.")
+
+        call = self.pending_tool_calls.get(checkpoint.id)
+        if call is None:
+            raise CheckpointNotFound(
+                f"Checkpoint {checkpoint_id!r} does not have a pending tool call."
+            )
+
+        tool = self.agent.get_tool(call.name)
+        if tool is None:
+            raise ToolNotFound(f"Agent {self.agent.name!r} does not have tool {call.name!r}.")
+
+        self.events.emit("CheckpointResumed", checkpoint_id=checkpoint.id, tool=call.name)
+        result = tool(*call.args, **call.kwargs)
+        self.events.emit("ToolCallCompleted", tool=call.name, checkpoint_id=checkpoint.id)
+        del self.pending_tool_calls[checkpoint.id]
+        return result
+
+    def get_checkpoint(self, checkpoint_id: str) -> Checkpoint:
+        for checkpoint in self.checkpoints:
+            if checkpoint.id == checkpoint_id:
+                return checkpoint
+        raise CheckpointNotFound(f"Checkpoint {checkpoint_id!r} was not found.")
 
     def run(self, workflow: Workflow, value: Any) -> WorkflowResult:
         self.events.emit("WorkflowStarted", workflow=workflow.name)

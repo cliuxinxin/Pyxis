@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from pyxis.checkpoint import Checkpoint
+
 
 @dataclass(frozen=True)
 class AgentResult:
@@ -20,7 +22,9 @@ class ToolResult:
     """A response produced by a tool."""
 
     name: str
-    output: Any
+    output: Any = None
+    requires_confirmation: bool = False
+    checkpoint: Checkpoint | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

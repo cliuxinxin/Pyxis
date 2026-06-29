@@ -13,6 +13,17 @@ from pyxis.types import RiskLevel
 
 
 @dataclass(frozen=True)
+class ToolCall:
+    """A pending or executed tool invocation."""
+
+    name: str
+    args: tuple[Any, ...] = field(default_factory=tuple)
+    kwargs: dict[str, Any] = field(default_factory=dict)
+    risk: RiskLevel = "low"
+    action: str = "tool_call"
+
+
+@dataclass(frozen=True)
 class Tool:
     """A callable capability exposed to an agent."""
 
@@ -31,6 +42,7 @@ class Tool:
         return ToolResult(
             name=self.name,
             output=output,
+            requires_confirmation=False,
             metadata={"risk": self.risk, **self.metadata},
         )
 

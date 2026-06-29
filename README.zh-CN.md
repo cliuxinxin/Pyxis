@@ -101,6 +101,38 @@ PYTHONPATH=src python3 examples/basic_openai_compatible.py
 示例会读取 `.env.local`，调用配置好的 OpenAI-compatible provider，并打印 Agent
 返回结果。
 
+## 可控工具调用
+
+通过 `Session` 调用工具时，Pyxis 会根据 `ControlPolicy` 判断是否需要 checkpoint。
+
+```python
+from pyxis import Agent, Pyxis, tool
+
+@tool(risk="high", action="file_write")
+def write_file(path: str, content: str) -> str:
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(content)
+    return path
+
+session = Pyxis(
+    agent=Agent(
+        name="navigator",
+        tools=[write_file],
+    )
+).session()
+
+result = session.call_tool("write_file", "notes.txt", content="hello")
+
+if result.requires_confirmation:
+    checkpoint = result.checkpoint
+    session.approve_checkpoint(checkpoint.id)
+    result = session.resume_checkpoint(checkpoint.id)
+
+print(result.output)
+```
+
+高风险工具不会立刻执行，而是先暂停并生成 checkpoint。只有确认后，Pyxis 才会恢复执行。
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

@@ -10,7 +10,7 @@ from pyxis.providers import MockProvider, OpenAICompatibleProvider, Provider
 from pyxis.pyxis import Pyxis
 from pyxis.results import AgentResult, NavigationResult, ToolResult, WorkflowResult
 from pyxis.session import Session
-from pyxis.tools import Tool, tool
+from pyxis.tools import Tool, ToolCall, tool
 from pyxis.workflow import Workflow
 
 __all__ = [
@@ -34,6 +34,7 @@ __all__ = [
     "Pyxis",
     "Session",
     "Tool",
+    "ToolCall",
     "ToolResult",
     "Workflow",
     "WorkflowResult",

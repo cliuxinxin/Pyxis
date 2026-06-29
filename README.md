@@ -151,6 +151,39 @@ agent = Agent(
 Tools carry risk and action metadata so a `ControlPolicy` can decide whether
 human confirmation is needed.
 
+## Controlled Tool Calls
+
+Call tools through `Session` when you want Pyxis to enforce checkpoints.
+
+```python
+from pyxis import Agent, Pyxis, tool
+
+@tool(risk="high", action="file_write")
+def write_file(path: str, content: str) -> str:
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(content)
+    return path
+
+session = Pyxis(
+    agent=Agent(
+        name="navigator",
+        tools=[write_file],
+    )
+).session()
+
+result = session.call_tool("write_file", "notes.txt", content="hello")
+
+if result.requires_confirmation:
+    checkpoint = result.checkpoint
+    session.approve_checkpoint(checkpoint.id)
+    result = session.resume_checkpoint(checkpoint.id)
+
+print(result.output)
+```
+
+High-risk tools pause before execution. The pending call is resumed only after
+the checkpoint is approved.
+
 ## Workflows
 
 ```python
