@@ -19,6 +19,7 @@ All notable changes to Pyxis will be documented in this file.
 - CLI commands for snapshot inspection, local memory show/clear, streaming runs,
   and workflow demos.
 - Snapshot metadata schema versioning and customizable redaction policies.
+- Cookbook, migration, provider, and tool authoring guides for 1.0 readiness.
 - Tool argument validation for required parameters, unexpected parameters,
   defaults, common annotations, and `typing.Literal`.
 - Public `ToolValidationError` for invalid tool calls.

@@ -33,6 +33,8 @@ workflows.
 - Snapshot metadata schema versioning and custom redaction policies.
 - CI package smoke tests for wheel install, import, metadata, and CLI commands.
 - Deterministic fuzz coverage for agent action JSON parsing.
+- Documentation system with API reference, cookbook, migration guide, provider
+  guide, tool authoring guide, and safety/control guide.
 
 ## Near-Term
 

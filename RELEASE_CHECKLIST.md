@@ -89,6 +89,10 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `docs/concepts/providers.md` documents provider contracts.
 - `docs/concepts/events.md` documents event schemas and observability contracts.
 - `docs/guides/safety-control.md` documents policy and consent behavior.
+- `docs/guides/cookbook.md` documents common usage patterns.
+- `docs/guides/provider-guide.md` documents custom provider implementation.
+- `docs/guides/tool-authoring.md` documents tool metadata and validation.
+- `docs/guides/migration.md` documents migration toward the 1.0 contract.
 - `.github/workflows/ci.yml` runs tests, lint, build, package metadata, wheel
   install, import, and CLI smoke checks.
 

@@ -174,6 +174,13 @@ for event in session.stream("Draft a concise plan"):
   snapshots, providers, tools, checkpoints, and workflows.
 - [Safety And Control](docs/guides/safety-control.md): policy modes, deny
   lists, risk overrides, and checkpoint options.
+- [Cookbook](docs/guides/cookbook.md): small composable usage patterns.
+- [Provider Guide](docs/guides/provider-guide.md): provider contracts,
+  streaming, timeout, cancellation, and errors.
+- [Tool Authoring Guide](docs/guides/tool-authoring.md): tool metadata,
+  validation, policy, and restore expectations.
+- [Migration Guide](docs/guides/migration.md): moving early MVP code toward the
+  1.0 contract.
 
 ## Examples
 

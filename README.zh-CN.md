@@ -29,6 +29,21 @@ Pyxis 的核心不是 `Agent.run()`，而是 `Session.navigate()`。
 - `Workflow`：可观察、可中断的任务流基础
 - `Provider`：模型供应商接口
 
+## 文档入口
+
+- [API Reference](API_REFERENCE.md)：公共 API、兼容策略、废弃策略。
+- [Session](docs/concepts/session.md)：对话、事件、snapshot、streaming。
+- [Checkpoint](docs/concepts/checkpoint.md)：敏感动作前的人类确认。
+- [Tool Actions](docs/concepts/tool-actions.md)：工具元数据、风险、action 协议。
+- [Workflows](docs/concepts/workflows.md)：顺序、checkpoint、反思型 workflow。
+- [Providers](docs/concepts/providers.md)：completion、streaming、usage、timeout、取消。
+- [Events](docs/concepts/events.md)：稳定事件 schema 和可观测性。
+- [Safety And Control](docs/guides/safety-control.md)：policy mode、deny list、risk override。
+- [Cookbook](docs/guides/cookbook.md)：可组合的常用模式。
+- [Provider Guide](docs/guides/provider-guide.md)：自定义 provider 指南。
+- [Tool Authoring Guide](docs/guides/tool-authoring.md)：工具编写和参数校验指南。
+- [Migration Guide](docs/guides/migration.md)：从早期 MVP 迁移到 1.0 契约。
+
 ## 快速开始
 
 ```python
