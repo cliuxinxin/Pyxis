@@ -7,7 +7,7 @@ Use this checklist before publishing Pyxis.
 - Package: `pyxis-ai`
 - Import name: `pyxis`
 - Current version: `0.1.0`
-- Status: early MVP
+- Status: release candidate
 
 ## Required Checks
 
@@ -62,7 +62,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 
 - `README.md` explains install, CLI, providers, snapshots, tools, and workflows.
 - `README.zh-CN.md` mirrors the main usage path in Chinese.
-- `CHANGELOG.md` describes the unreleased `0.1.0` MVP.
+- `CHANGELOG.md` describes the `0.1.0` MVP.
 - `CONTRIBUTING.md` documents local development and safety expectations.
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
 

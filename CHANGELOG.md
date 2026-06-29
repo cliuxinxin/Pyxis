@@ -2,7 +2,7 @@
 
 All notable changes to Pyxis will be documented in this file.
 
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-06-29
 
 Initial MVP for a human-centered Python agent harness.
 
