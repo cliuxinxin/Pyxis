@@ -34,6 +34,16 @@ extensible.
 - `Workflow`: a simple, observable sequence of steps.
 - `Provider`: a model backend interface.
 
+## Current Capabilities
+
+- OpenAI-compatible provider using standard `OPENAI_*` environment variables.
+- Agent JSON action protocol for model-requested tool calls.
+- Automatic tool manifest injection.
+- Checkpointed tool execution for high-risk actions.
+- Pausable workflows with approve, reject, and resume flows.
+- JSON-safe session snapshots and snapshot file persistence.
+- Minimal CLI for configuration checks and one-off runs.
+
 ## Install
 
 Pyxis is currently a local package scaffold.
