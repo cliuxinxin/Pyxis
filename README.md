@@ -92,6 +92,12 @@ Save an audit snapshot while running:
 pyxis run "Plan a simple research workflow" --save-snapshot session-audit.json
 ```
 
+Approve a checkpoint produced by a run:
+
+```bash
+pyxis run "..." --approve
+```
+
 ## Session Snapshots
 
 Sessions expose a JSON-safe snapshot for inspection and audit trails:

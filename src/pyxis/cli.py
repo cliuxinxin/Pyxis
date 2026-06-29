@@ -62,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         help="Agent instructions.",
     )
+    run.add_argument(
+        "--approve",
+        action="store_true",
+        help="Automatically approve a pending checkpoint produced by the run.",
+    )
 
     return parser
 
@@ -89,12 +94,40 @@ def cmd_run(args: argparse.Namespace) -> int:
     session = Pyxis(agent=agent).session()
     result = session.navigate(" ".join(args.prompt))
     print(result.output)
+    _maybe_handle_checkpoint(args, session, result)
 
     if args.save_snapshot:
         path = session.save_snapshot(args.save_snapshot)
         print(f"Snapshot saved to {path}")
 
     return 0
+
+
+def _maybe_handle_checkpoint(
+    args: argparse.Namespace,
+    session,
+    result,
+) -> None:
+    tool_result = result.metadata.get("tool_result")
+    if not tool_result or not getattr(tool_result, "requires_confirmation", False):
+        return
+
+    checkpoint = getattr(tool_result, "checkpoint", None)
+    if checkpoint is None:
+        return
+
+    approve = args.approve
+    if not approve:
+        answer = input(f"Approve checkpoint {checkpoint.id}? [y/N] ").strip().lower()
+        approve = answer in {"y", "yes"}
+
+    if not approve:
+        print(f"Checkpoint left pending: {checkpoint.id}")
+        return
+
+    session.approve_checkpoint(checkpoint.id)
+    resumed = session.resume_checkpoint(checkpoint.id)
+    print(resumed.output)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -28,7 +28,7 @@ workflows.
 - Workflow resume from registered callable catalogs.
 - Multi-agent coordination primitives.
 - Provider adapters beyond OpenAI-compatible APIs.
-- Rich CLI output and interactive checkpoint approval.
+- Rich CLI output beyond the current basic checkpoint approval flow.
 
 ## Non-Goals For The Core
 

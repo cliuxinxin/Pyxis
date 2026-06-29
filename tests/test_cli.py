@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from pyxis import cli
 
@@ -77,3 +78,97 @@ def test_run_prints_output_and_saves_snapshot(monkeypatch, tmp_path, capsys) -> 
     assert f"Snapshot saved to {snapshot_path}" in captured.out
     assert Path(snapshot_path).exists()
     assert "secret-value" not in captured.out
+
+
+def test_run_auto_approves_checkpoint(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost")
+    monkeypatch.setenv("OPENAI_API_KEY", "secret-value")
+    monkeypatch.setenv("OPENAI_MODEL", "test-model")
+
+    checkpoint = SimpleNamespace(id="checkpoint-1")
+    tool_result = SimpleNamespace(
+        name="write_file",
+        output=None,
+        requires_confirmation=True,
+        checkpoint=checkpoint,
+    )
+    result = SimpleNamespace(
+        output="Confirmation required",
+        metadata={"tool_result": tool_result},
+    )
+    resumed = SimpleNamespace(output="approved output")
+
+    class FakeSession:
+        def navigate(self, prompt: str):
+            return result
+
+        def approve_checkpoint(self, checkpoint_id: str) -> None:
+            assert checkpoint_id == "checkpoint-1"
+
+        def resume_checkpoint(self, checkpoint_id: str):
+            assert checkpoint_id == "checkpoint-1"
+            return resumed
+
+    class FakePyxis:
+        def __init__(self, agent) -> None:
+            self.agent = agent
+
+        def session(self):
+            return FakeSession()
+
+    class FakeProvider:
+        def __init__(self, *, model: str) -> None:
+            self.model = model
+
+    monkeypatch.setattr(cli, "OpenAICompatibleProvider", FakeProvider)
+    monkeypatch.setattr(cli, "Pyxis", FakePyxis)
+
+    code = cli.main(["--env-file", "missing.env", "run", "hello", "--approve"])
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Confirmation required" in captured.out
+    assert "approved output" in captured.out
+
+
+def test_run_can_leave_checkpoint_pending(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost")
+    monkeypatch.setenv("OPENAI_API_KEY", "secret-value")
+    monkeypatch.setenv("OPENAI_MODEL", "test-model")
+    monkeypatch.setattr("builtins.input", lambda prompt: "n")
+
+    checkpoint = SimpleNamespace(id="checkpoint-1")
+    tool_result = SimpleNamespace(
+        name="write_file",
+        output=None,
+        requires_confirmation=True,
+        checkpoint=checkpoint,
+    )
+    result = SimpleNamespace(
+        output="Confirmation required",
+        metadata={"tool_result": tool_result},
+    )
+
+    class FakeSession:
+        def navigate(self, prompt: str):
+            return result
+
+    class FakePyxis:
+        def __init__(self, agent) -> None:
+            self.agent = agent
+
+        def session(self):
+            return FakeSession()
+
+    class FakeProvider:
+        def __init__(self, *, model: str) -> None:
+            self.model = model
+
+    monkeypatch.setattr(cli, "OpenAICompatibleProvider", FakeProvider)
+    monkeypatch.setattr(cli, "Pyxis", FakePyxis)
+
+    code = cli.main(["--env-file", "missing.env", "run", "hello"])
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Checkpoint left pending: checkpoint-1" in captured.out

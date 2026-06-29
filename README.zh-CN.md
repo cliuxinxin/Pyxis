@@ -69,6 +69,12 @@ pyxis run "Plan a simple research workflow"
 pyxis run "Plan a simple research workflow" --save-snapshot session-audit.json
 ```
 
+如果本次运行产生 checkpoint，可以直接批准：
+
+```bash
+pyxis run "..." --approve
+```
+
 ## OpenAI-Compatible Provider
 
 Pyxis 可以连接兼容 OpenAI Chat Completions 协议的接口，不强制依赖某个 SDK。
