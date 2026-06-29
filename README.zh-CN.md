@@ -96,6 +96,8 @@ from pyxis import Agent, OpenAICompatibleProvider, Pyxis
 
 provider = OpenAICompatibleProvider(
     model=os.environ["OPENAI_MODEL"],
+    max_retries=2,
+    backoff=0.5,
 )
 
 agent = Agent(
@@ -109,6 +111,7 @@ print(result.output)
 ```
 
 真实 key 不要提交到仓库。仓库里只保留 `.env.example` 作为配置示例。
+如果 provider 返回 `usage`，Pyxis 会把它放进 result metadata。
 
 ### Live Smoke Test
 

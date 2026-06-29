@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
@@ -63,6 +64,8 @@ class OpenAICompatibleProvider:
         api_key: str | None = None,
         timeout: float = 60,
         temperature: float | None = None,
+        max_retries: int = 0,
+        backoff: float = 0.5,
         extra_headers: dict[str, str] | None = None,
     ) -> None:
         self.model = model
@@ -71,6 +74,8 @@ class OpenAICompatibleProvider:
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.timeout = timeout
         self.temperature = temperature
+        self.max_retries = max_retries
+        self.backoff = backoff
         self.extra_headers = dict(extra_headers or {})
 
     def complete(self, request: CompletionRequest) -> CompletionResult:
@@ -89,7 +94,11 @@ class OpenAICompatibleProvider:
         return CompletionResult(
             output=output,
             raw=response,
-            metadata={"provider": "openai-compatible", "model": self.model},
+            metadata={
+                "provider": "openai-compatible",
+                "model": self.model,
+                "usage": response.get("usage"),
+            },
         )
 
     def _build_payload(self, request: CompletionRequest) -> dict[str, Any]:
@@ -116,16 +125,7 @@ class OpenAICompatibleProvider:
         }
         request = Request(url, data=body, headers=headers, method="POST")
 
-        try:
-            with urlopen(request, timeout=self.timeout) as response:
-                data = response.read().decode("utf-8")
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise ProviderRequestError(
-                f"Provider request failed with HTTP {exc.code}: {detail}"
-            ) from exc
-        except URLError as exc:
-            raise ProviderRequestError(f"Provider request failed: {exc.reason}") from exc
+        data = self._send_with_retries(request)
 
         try:
             parsed = json.loads(data)
@@ -135,6 +135,33 @@ class OpenAICompatibleProvider:
         if not isinstance(parsed, dict):
             raise ProviderRequestError("Provider returned a non-object JSON response.")
         return parsed
+
+    def _send_with_retries(self, request: Request) -> str:
+        attempts = self.max_retries + 1
+        last_error: Exception | None = None
+
+        for attempt in range(attempts):
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return response.read().decode("utf-8")
+            except HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                if exc.code < 500 or attempt == attempts - 1:
+                    raise ProviderRequestError(
+                        f"Provider request failed with HTTP {exc.code}: {detail}"
+                    ) from exc
+                last_error = exc
+            except URLError as exc:
+                if attempt == attempts - 1:
+                    raise ProviderRequestError(
+                        f"Provider request failed after {attempts} attempt(s): {exc.reason}"
+                    ) from exc
+                last_error = exc
+
+            if self.backoff > 0:
+                time.sleep(self.backoff * (2**attempt))
+
+        raise ProviderRequestError(f"Provider request failed: {last_error}") from last_error
 
     def _extract_output(self, response: dict[str, Any]) -> str:
         try:

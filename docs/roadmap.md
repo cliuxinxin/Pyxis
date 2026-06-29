@@ -18,7 +18,7 @@ workflows.
 
 - Provider-native token streaming beyond the current turn-level session events.
 - Stronger tool argument validation beyond the current signature-derived schema.
-- Retry and timeout policy for providers and tools.
+- Richer retry policies for tools beyond the current provider retry/backoff support.
 - More detailed workflow step events.
 - Snapshot redaction hooks for sensitive payloads.
 

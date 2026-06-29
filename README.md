@@ -144,6 +144,8 @@ from pyxis import Agent, OpenAICompatibleProvider, Pyxis
 
 provider = OpenAICompatibleProvider(
     model=os.environ["OPENAI_MODEL"],
+    max_retries=2,
+    backoff=0.5,
 )
 
 agent = Agent(
@@ -158,6 +160,7 @@ print(result.output)
 
 You can also pass `base_url` and `api_key` directly when embedding Pyxis in
 another application. Avoid committing real keys to the repository.
+Provider responses include any returned `usage` metadata when available.
 
 ### Live Smoke Test
 
