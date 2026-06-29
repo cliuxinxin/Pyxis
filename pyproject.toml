@@ -35,6 +35,9 @@ dev = [
 Homepage = "https://github.com/pyxis-ai/pyxis"
 Repository = "https://github.com/pyxis-ai/pyxis"
 
+[project.scripts]
+pyxis = "pyxis.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/pyxis"]
 

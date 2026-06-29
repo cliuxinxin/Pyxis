@@ -59,6 +59,29 @@ result = px.navigate("Plan a simple research workflow")
 print(result.output)
 ```
 
+## CLI
+
+Pyxis includes a small CLI for local checks and one-off runs:
+
+```bash
+pyxis doctor
+```
+
+`doctor` checks `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `OPENAI_MODEL` without
+printing secret values.
+
+Run a prompt with the configured provider:
+
+```bash
+pyxis run "Plan a simple research workflow"
+```
+
+Save an audit snapshot while running:
+
+```bash
+pyxis run "Plan a simple research workflow" --save-snapshot session-audit.json
+```
+
 ## Session Snapshots
 
 Sessions expose a JSON-safe snapshot for inspection and audit trails:

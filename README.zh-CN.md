@@ -46,6 +46,29 @@ result = session.navigate("帮我规划一个竞品研究流程")
 print(result.output)
 ```
 
+## CLI
+
+Pyxis 提供一个很小的 CLI，用来做本地检查和一次性运行：
+
+```bash
+pyxis doctor
+```
+
+`doctor` 会检查 `OPENAI_BASE_URL`、`OPENAI_API_KEY` 和 `OPENAI_MODEL`，但不会打印
+secret 值。
+
+用配置好的 provider 跑一个 prompt：
+
+```bash
+pyxis run "Plan a simple research workflow"
+```
+
+运行时保存审计 snapshot：
+
+```bash
+pyxis run "Plan a simple research workflow" --save-snapshot session-audit.json
+```
+
 ## OpenAI-Compatible Provider
 
 Pyxis 可以连接兼容 OpenAI Chat Completions 协议的接口，不强制依赖某个 SDK。
