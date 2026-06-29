@@ -23,7 +23,7 @@ from pyxis.memory import (
     UserPreferences,
 )
 from pyxis.policy import ControlPolicy
-from pyxis.providers import MockProvider, OpenAICompatibleProvider, Provider
+from pyxis.providers import CompletionChunk, MockProvider, OpenAICompatibleProvider, Provider
 from pyxis.pyxis import Pyxis
 from pyxis.results import AgentResult, NavigationResult, StreamEvent, ToolResult, WorkflowResult
 from pyxis.session import Session
@@ -39,6 +39,7 @@ __all__ = [
     "Checkpoint",
     "CheckpointStatus",
     "Clarification",
+    "CompletionChunk",
     "Compass",
     "CompassAnalysis",
     "CompassDecision",

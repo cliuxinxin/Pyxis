@@ -125,7 +125,19 @@ class Session:
             type="start",
             data={"input": user_input},
         )
+
+        if self._can_stream_provider():
+            result = yield from self._stream_with_provider(
+                user_input,
+                requires_confirmation=requires_confirmation,
+            )
+            yield from self._stream_result_events(result)
+            return
+
         result = self.navigate(user_input, requires_confirmation=requires_confirmation)
+        yield from self._stream_result_events(result)
+
+    def _stream_result_events(self, result: NavigationResult):
         yield StreamEvent(
             type="result",
             data={
@@ -147,6 +159,74 @@ class Session:
             )
 
         yield StreamEvent(type="done", data={"output": result.output})
+
+    def _stream_with_provider(
+        self,
+        user_input: str,
+        *,
+        requires_confirmation: bool = False,
+    ):
+        self.dialogue.add("user", user_input)
+        self.events.emit("UserMessageReceived", content=user_input)
+
+        analysis = self.compass.analyze(
+            user_input,
+            requires_confirmation=requires_confirmation,
+        )
+        decision = analysis.decision
+        self._record_analysis(analysis)
+        self.events.emit(
+            "CompassDecisionMade",
+            decision=decision.type.value,
+            reason=decision.reason,
+            intent=analysis.intent.type.value,
+            needs_clarification=analysis.intent.needs_clarification,
+        )
+
+        metadata: dict[str, Any] = {"analysis": analysis}
+
+        if decision.type == CompassDecisionType.ASK_CLARIFICATION:
+            output = decision.prompt or "Can you clarify what you want to do next?"
+        elif decision.type == CompassDecisionType.STOP:
+            output = "Stopped."
+        elif decision.type == CompassDecisionType.REQUEST_CONFIRMATION:
+            checkpoint = self.checkpoint(
+                reason=decision.reason,
+                action="navigation",
+                payload={"input": user_input},
+                summary="Pyxis needs confirmation before continuing this navigation step.",
+                risk_reason=decision.reason,
+                preview=user_input,
+            )
+            output = f"Confirmation required before continuing: {checkpoint.reason}"
+        else:
+            if decision.type == CompassDecisionType.PROPOSE_PLAN:
+                prompt = f"Propose a concise, controllable plan for this request:\n{user_input}"
+            else:
+                prompt = user_input
+            chunks: list[str] = []
+            for chunk in self.agent.stream(prompt, context={"decision": decision.type.value}):
+                if not chunk.text:
+                    continue
+                chunks.append(chunk.text)
+                yield StreamEvent(
+                    type="delta",
+                    data={
+                        "text": chunk.text,
+                        "metadata": to_jsonable(chunk.metadata),
+                    },
+                )
+            output = self.agent.response_style.apply("".join(chunks))
+            output, action_metadata = self._handle_agent_output(output)
+            metadata.update(action_metadata)
+            metadata["streamed"] = True
+
+        self.dialogue.add("agent", output)
+        self.events.emit("AgentResponded", content=output)
+        return NavigationResult(output=output, decision=decision.type.value, metadata=metadata)
+
+    def _can_stream_provider(self) -> bool:
+        return callable(getattr(self.agent.provider, "stream", None))
 
     def _handle_agent_output(self, output: str) -> tuple[str, dict[str, Any]]:
         action = parse_agent_action(output)

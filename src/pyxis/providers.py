@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
@@ -27,6 +28,15 @@ class CompletionResult:
     """Provider-agnostic completion result."""
 
     output: str
+    raw: Any = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class CompletionChunk:
+    """A provider-native streaming chunk."""
+
+    text: str
     raw: Any = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -101,6 +111,20 @@ class OpenAICompatibleProvider:
             },
         )
 
+    def stream(self, request: CompletionRequest) -> Iterator[CompletionChunk]:
+        if not self.base_url:
+            raise ProviderConfigurationError(
+                "OpenAICompatibleProvider requires base_url or OPENAI_BASE_URL."
+            )
+        if not self.api_key:
+            raise ProviderConfigurationError(
+                "OpenAICompatibleProvider requires api_key or OPENAI_API_KEY."
+            )
+
+        payload = self._build_payload(request)
+        payload["stream"] = True
+        yield from self._post_stream("/chat/completions", payload)
+
     def _build_payload(self, request: CompletionRequest) -> dict[str, Any]:
         messages: list[dict[str, str]] = []
         if request.instructions:
@@ -135,6 +159,67 @@ class OpenAICompatibleProvider:
         if not isinstance(parsed, dict):
             raise ProviderRequestError("Provider returned a non-object JSON response.")
         return parsed
+
+    def _post_stream(
+        self,
+        path: str,
+        payload: dict[str, Any],
+    ) -> Iterator[CompletionChunk]:
+        url = f"{self.base_url}{path}"
+        body = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            **self.extra_headers,
+        }
+        request = Request(url, data=body, headers=headers, method="POST")
+
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                for raw_line in response:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line.removeprefix("data:").strip()
+                    if data == "[DONE]":
+                        break
+                    yield self._parse_stream_chunk(data)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise ProviderRequestError(
+                f"Provider stream failed with HTTP {exc.code}: {detail}"
+            ) from exc
+        except URLError as exc:
+            raise ProviderRequestError(f"Provider stream failed: {exc.reason}") from exc
+
+    def _parse_stream_chunk(self, data: str) -> CompletionChunk:
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError as exc:
+            raise ProviderRequestError("Provider stream returned invalid JSON.") from exc
+
+        if not isinstance(parsed, dict):
+            raise ProviderRequestError("Provider stream returned a non-object JSON chunk.")
+
+        text = ""
+        try:
+            delta = parsed["choices"][0].get("delta", {})
+            text = delta.get("content") or ""
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise ProviderRequestError(
+                "Provider stream chunk did not include delta content."
+            ) from exc
+
+        return CompletionChunk(
+            text=text,
+            raw=parsed,
+            metadata={
+                "provider": "openai-compatible",
+                "model": self.model,
+                "usage": parsed.get("usage"),
+            },
+        )
 
     def _send_with_retries(self, request: Request) -> str:
         attempts = self.max_retries + 1

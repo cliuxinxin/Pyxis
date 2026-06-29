@@ -276,11 +276,15 @@ Sessions can also expose high-level stream events:
 
 ```python
 for event in session.stream("帮我规划一个竞品研究流程"):
-    print(event.type, event.data)
+    if event.type == "delta":
+        print(event.data["text"], end="")
+    elif event.type == "done":
+        print()
 ```
 
-The current stream API yields turn-level events. Provider-native token streaming
-can be layered on later.
+When the provider supports native streaming, Pyxis yields `delta` events before
+the final `result` and `done` events. Providers without streaming support still
+use the turn-level `start`, `result`, and `done` events.
 
 ## Tools
 

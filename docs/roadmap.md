@@ -19,10 +19,10 @@ workflows.
 - Bounded in-process memory for user preferences, project context, and
   scratchpad state.
 - Reflective workflow steps for ask, reflect, and revise loops.
+- Provider-native token streaming for OpenAI-compatible providers.
 
 ## Near-Term
 
-- Provider-native token streaming beyond the current turn-level session events.
 - Stronger tool argument validation beyond the current signature-derived schema.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
 - More detailed workflow step events.

@@ -24,16 +24,30 @@ class Agent:
     response_style: ResponseStyle = field(default_factory=ResponseStyle)
 
     def run(self, prompt: str, *, context: dict | None = None) -> AgentResult:
-        request = CompletionRequest(
-            prompt=prompt,
-            instructions=self.system_instructions(),
-            context={"agent": self.name, **(context or {})},
-        )
+        request = self.completion_request(prompt, context=context)
         result = self.provider.complete(request)
         return AgentResult(
             output=self.response_style.apply(result.output),
             raw=result.raw,
             metadata=result.metadata,
+        )
+
+    def stream(self, prompt: str, *, context: dict | None = None):
+        stream = getattr(self.provider, "stream", None)
+        if not callable(stream):
+            raise TypeError(f"Provider for agent {self.name!r} does not support streaming.")
+        yield from stream(self.completion_request(prompt, context=context))
+
+    def completion_request(
+        self,
+        prompt: str,
+        *,
+        context: dict | None = None,
+    ) -> CompletionRequest:
+        return CompletionRequest(
+            prompt=prompt,
+            instructions=self.system_instructions(),
+            context={"agent": self.name, **(context or {})},
         )
 
     def get_tool(self, name: str) -> Tool | None:
