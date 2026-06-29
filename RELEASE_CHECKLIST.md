@@ -104,7 +104,6 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 
 ## Known MVP Limits
 
-- Stream retry semantics after a stream connection opens are still intentionally conservative.
 - Provider adapters beyond OpenAI-compatible chat completions are not included yet.
 
 ## 0.1.1 Audit Notes

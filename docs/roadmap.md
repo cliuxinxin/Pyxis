@@ -35,10 +35,11 @@ workflows.
 - Deterministic fuzz coverage for agent action JSON parsing.
 - Documentation system with API reference, cookbook, migration guide, provider
   guide, tool authoring guide, and safety/control guide.
+- Explicit stream retry semantics: retry before a stream opens, no replay after
+  deltas may have been emitted.
 
 ## Near-Term
 
-- Provider contract finalization for stream retry semantics.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
 - Versioned release automation beyond the current package smoke checks.
 

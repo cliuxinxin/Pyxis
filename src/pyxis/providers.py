@@ -225,24 +225,55 @@ class OpenAICompatibleProvider:
         http_request = Request(url, data=body, headers=headers, method="POST")
 
         try:
-            _throw_if_cancelled(request)
-            timeout = request.timeout if request.timeout is not None else self.timeout
-            with urlopen(http_request, timeout=timeout) as response:
+            with self._open_stream_with_retries(http_request, request=request) as response:
                 for event_data in self._iter_sse_data(response, request=request):
                     if event_data == "[DONE]":
                         break
                     yield self._parse_stream_chunk(event_data)
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise ProviderRequestError(
-                f"Provider stream failed with HTTP {exc.code}: {detail}"
-            ) from exc
         except TimeoutError as exc:
             raise ProviderTimeoutError("Provider stream timed out.") from exc
         except URLError as exc:
             if isinstance(exc.reason, TimeoutError):
                 raise ProviderTimeoutError("Provider stream timed out.") from exc
             raise ProviderRequestError(f"Provider stream failed: {exc.reason}") from exc
+
+    def _open_stream_with_retries(
+        self,
+        http_request: Request,
+        *,
+        request: CompletionRequest,
+    ):
+        attempts = self.max_retries + 1
+        last_error: Exception | None = None
+
+        for attempt in range(attempts):
+            _throw_if_cancelled(request)
+            try:
+                timeout = request.timeout if request.timeout is not None else self.timeout
+                return urlopen(http_request, timeout=timeout)
+            except HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                if exc.code < 500 or attempt == attempts - 1:
+                    raise ProviderRequestError(
+                        f"Provider stream failed with HTTP {exc.code}: {detail}"
+                    ) from exc
+                last_error = exc
+            except URLError as exc:
+                if attempt == attempts - 1:
+                    if isinstance(exc.reason, TimeoutError):
+                        raise ProviderTimeoutError("Provider stream timed out.") from exc
+                    raise ProviderRequestError(f"Provider stream failed: {exc.reason}") from exc
+                last_error = exc
+            except TimeoutError as exc:
+                if attempt == attempts - 1:
+                    raise ProviderTimeoutError("Provider stream timed out.") from exc
+                last_error = exc
+
+            if self.backoff > 0:
+                _throw_if_cancelled(request)
+                time.sleep(self.backoff * (2**attempt))
+
+        raise ProviderRequestError(f"Provider stream failed: {last_error}") from last_error
 
     def _iter_sse_data(
         self,

@@ -11,6 +11,7 @@ from pyxis import (
     MockProvider,
     OpenAICompatibleProvider,
     ProviderCancelledError,
+    ProviderRequestError,
     Pyxis,
     tool,
 )
@@ -126,6 +127,96 @@ def test_openai_compatible_provider_streams_sse_chunks() -> None:
     assert seen["authorization"] == "Bearer test-key"
     assert seen["body"]["stream"] is True
     assert seen["body"]["model"] == "test-model"
+
+
+def test_openai_compatible_provider_retries_stream_before_response_opens() -> None:
+    seen: dict = {"requests": 0}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            seen["requests"] += 1
+            length = int(self.headers["Content-Length"])
+            self.rfile.read(length)
+            if seen["requests"] == 1:
+                body = b"temporary"
+                self.send_response(500)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            chunk = {"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]}
+            body = f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n".encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args) -> None:
+            return None
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        provider = OpenAICompatibleProvider(
+            model="test-model",
+            base_url=f"http://127.0.0.1:{server.server_port}",
+            api_key="test-key",
+            max_retries=1,
+            backoff=0,
+        )
+
+        chunks = list(provider.stream(Agent(name="navigator").completion_request("Hello")))
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert seen["requests"] == 2
+    assert [chunk.text for chunk in chunks] == ["ok"]
+    assert chunks[0].finish_reason == "stop"
+
+
+def test_openai_compatible_provider_does_not_retry_after_stream_starts() -> None:
+    seen: dict = {"requests": 0}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            seen["requests"] += 1
+            length = int(self.headers["Content-Length"])
+            self.rfile.read(length)
+            body = b"data: {not-json}\n\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args) -> None:
+            return None
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        provider = OpenAICompatibleProvider(
+            model="test-model",
+            base_url=f"http://127.0.0.1:{server.server_port}",
+            api_key="test-key",
+            max_retries=1,
+            backoff=0,
+        )
+
+        with pytest.raises(ProviderRequestError, match="invalid JSON"):
+            list(provider.stream(Agent(name="navigator").completion_request("Hello")))
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert seen["requests"] == 1
 
 
 def test_provider_stream_respects_cancellation_token_between_chunks() -> None:

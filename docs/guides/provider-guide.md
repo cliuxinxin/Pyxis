@@ -47,6 +47,11 @@ class MyProvider:
 `Session.stream()` emits `delta` events for chunks with text and records
 provider lifecycle events in the session event log.
 
+For OpenAI-compatible SSE streams, retries happen only before the response
+opens. Once any stream response is being read, Pyxis does not replay the request
+after malformed chunks or connection failures. Host applications should treat
+already-emitted deltas as delivered output.
+
 ## Errors
 
 Providers should raise:
@@ -77,4 +82,5 @@ default timeout.
 - `OPENAI_MODEL`
 
 It supports completion, SSE streaming, usage extraction, finish reasons,
-timeouts, cancellation, and retry/backoff before a streaming response opens.
+timeouts, cancellation, non-streaming retries, and retry/backoff before a
+streaming response opens.

@@ -43,6 +43,15 @@ Provider-native streaming yields `CompletionChunk` objects:
 OpenAI-compatible providers commonly emit a final chunk with empty text and a
 `finish_reason`. Pyxis treats that as a valid chunk, not an error.
 
+Stream retry semantics are intentionally explicit:
+
+- before the stream response opens, `OpenAICompatibleProvider` retries
+  transient server/network failures according to `max_retries` and `backoff`;
+- after the stream response opens, Pyxis does not replay the request if a later
+  chunk is malformed or the connection fails.
+
+This avoids duplicating already-emitted deltas.
+
 ## Errors
 
 Providers should raise:
@@ -63,5 +72,6 @@ export OPENAI_MODEL="model-name"
 ```
 
 It supports non-streaming chat completions, provider-native SSE streaming,
-server-error retries for non-streaming requests, per-request timeout overrides,
-usage metadata, finish reasons, and cancellation tokens.
+server-error retries for non-streaming requests, stream-open retries,
+per-request timeout overrides, usage metadata, finish reasons, and cancellation
+tokens.
