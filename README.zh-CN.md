@@ -171,6 +171,10 @@ print(result.output)
 
 如果 Agent 返回的不是合法 action JSON，Pyxis 会把它当作普通文本消息处理。
 
+当 Agent 挂载了工具时，Pyxis 会自动把工具清单和 action 协议注入到 provider
+instructions 里。开发者只需要定义一次工具，Agent 会收到工具的 name、description、
+risk 和 action 元信息。
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

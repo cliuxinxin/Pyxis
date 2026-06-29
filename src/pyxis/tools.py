@@ -9,7 +9,7 @@ from typing import Any
 
 from pyxis.errors import ToolExecutionError
 from pyxis.results import ToolResult
-from pyxis.types import RiskLevel
+from pyxis.types import JsonDict, RiskLevel
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,16 @@ class Tool:
     risk: RiskLevel = "low"
     action: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def manifest(self) -> JsonDict:
+        """Return the tool information exposed to an agent."""
+
+        return {
+            "name": self.name,
+            "description": self.description,
+            "risk": self.risk,
+            "action": self.action or "tool_call",
+        }
 
     def __call__(self, *args: Any, **kwargs: Any) -> ToolResult:
         try:

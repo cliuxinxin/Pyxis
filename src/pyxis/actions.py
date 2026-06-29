@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from pyxis.types import JsonDict
+
 
 class AgentActionType(str, Enum):
     """Actions an agent can request from Pyxis."""
@@ -78,3 +80,33 @@ def parse_agent_action(output: str) -> AgentAction:
         return AgentAction(type=AgentActionType.MESSAGE, content=content, raw=parsed)
 
     return AgentAction(type=AgentActionType.MESSAGE, content=output, raw=parsed)
+
+
+def build_action_instructions(tool_manifests: list[JsonDict]) -> str:
+    """Build instructions that teach an agent how to request Pyxis actions."""
+
+    if not tool_manifests:
+        return ""
+
+    lines = [
+        "Pyxis can execute tools through a controlled action protocol.",
+        "When you need a tool, respond with only a JSON object in this shape:",
+        '{"type":"tool_call","tool":"tool_name","args":{"arg_name":"value"}}',
+        "Available tools:",
+    ]
+    for manifest in tool_manifests:
+        description = manifest.get("description") or "No description provided."
+        action = manifest.get("action") or "tool_call"
+        risk = manifest.get("risk") or "low"
+        lines.append(
+            f"- {manifest['name']}: {description} "
+            f"(risk={risk}, action={action})"
+        )
+
+    lines.extend(
+        [
+            "Use normal text when no tool is needed.",
+            "High-risk tools may pause for human confirmation before execution.",
+        ]
+    )
+    return "\n".join(lines)
