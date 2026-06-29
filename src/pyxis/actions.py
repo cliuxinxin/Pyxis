@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -37,9 +38,8 @@ def parse_agent_action(output: str) -> AgentAction:
     normal messages. This keeps the protocol opt-in and avoids surprising users.
     """
 
-    try:
-        parsed = json.loads(output)
-    except json.JSONDecodeError:
+    parsed = _extract_json_object(output)
+    if parsed is None:
         return AgentAction(type=AgentActionType.MESSAGE, content=output, raw=output)
 
     if not isinstance(parsed, dict):
@@ -80,6 +80,33 @@ def parse_agent_action(output: str) -> AgentAction:
         return AgentAction(type=AgentActionType.MESSAGE, content=content, raw=parsed)
 
     return AgentAction(type=AgentActionType.MESSAGE, content=output, raw=parsed)
+
+
+def _extract_json_object(output: str) -> Any:
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        pass
+
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", output, flags=re.DOTALL)
+    if fenced:
+        try:
+            return json.loads(fenced.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(output):
+        if char != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(output[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    return None
 
 
 def build_action_instructions(tool_manifests: list[JsonDict]) -> str:

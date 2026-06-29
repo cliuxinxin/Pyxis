@@ -288,7 +288,9 @@ result = Pyxis(agent=agent).navigate("Summarize this")
 print(result.output)
 ```
 
-If the response is not valid action JSON, Pyxis treats it as a normal message.
+Pyxis can read action JSON directly, from a JSON code block, or from surrounding
+explanatory text. If no valid action JSON is found, Pyxis treats the response as
+a normal message.
 
 When an agent has tools, Pyxis automatically adds a compact tool manifest and
 the action protocol to the provider instructions. Developers define tools once;

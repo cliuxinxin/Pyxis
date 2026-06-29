@@ -28,6 +28,40 @@ def test_parse_agent_action_treats_malformed_json_as_message() -> None:
     assert action.content == '{"type": "tool_call"'
 
 
+def test_parse_agent_action_reads_json_code_block() -> None:
+    action = parse_agent_action(
+        """
+        Here is the action:
+
+        ```json
+        {"type":"tool_call","tool":"summarize","args":{"text":"pyxis"}}
+        ```
+        """
+    )
+
+    assert action.type == AgentActionType.TOOL_CALL
+    assert action.tool == "summarize"
+    assert action.kwargs == {"text": "pyxis"}
+
+
+def test_parse_agent_action_reads_json_with_surrounding_text() -> None:
+    action = parse_agent_action(
+        'I will use a tool: {"type":"tool_call","tool":"summarize","args":{"text":"pyxis"}}'
+    )
+
+    assert action.type == AgentActionType.TOOL_CALL
+    assert action.tool == "summarize"
+
+
+def test_parse_agent_action_ignores_malformed_json_code_block() -> None:
+    text = "```json\n{\"type\":\"tool_call\"\n```"
+
+    action = parse_agent_action(text)
+
+    assert action.type == AgentActionType.MESSAGE
+    assert action.content == text
+
+
 def test_navigate_preserves_plain_agent_message() -> None:
     agent = Agent(name="navigator", provider=MockProvider(output="Plain answer."))
     session = Pyxis(agent=agent).session()

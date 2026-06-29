@@ -200,7 +200,8 @@ result = Pyxis(agent=agent).navigate("Summarize this")
 print(result.output)
 ```
 
-如果 Agent 返回的不是合法 action JSON，Pyxis 会把它当作普通文本消息处理。
+Pyxis 可以读取直接返回的 action JSON，也可以从 JSON code block 或前后解释文本中提取
+action JSON。如果找不到合法 action JSON，Pyxis 会把它当作普通文本消息处理。
 
 当 Agent 挂载了工具时，Pyxis 会自动把工具清单和 action 协议注入到 provider
 instructions 里。开发者只需要定义一次工具，Agent 会收到工具的 name、description、

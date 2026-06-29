@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from pyxis import Agent, Pyxis, Workflow, load_snapshot, save_snapshot, tool
+from pyxis import Agent, MockProvider, Pyxis, Workflow, load_snapshot, save_snapshot, tool
 
 
 def test_session_snapshot_is_json_serializable() -> None:
@@ -10,7 +10,8 @@ def test_session_snapshot_is_json_serializable() -> None:
     def write_file(path: str) -> str:
         return path
 
-    session = Pyxis(agent=Agent(name="navigator", tools=[write_file])).session()
+    agent = Agent(name="navigator", provider=MockProvider(output="hello"), tools=[write_file])
+    session = Pyxis(agent=agent).session()
     session.navigate("hello")
     paused = session.call_tool("write_file", "demo.txt")
     assert paused.checkpoint is not None
