@@ -63,6 +63,12 @@ secret 值。
 pyxis run "Plan a simple research workflow"
 ```
 
+如果 provider 支持原生 streaming，可以直接输出 delta：
+
+```bash
+pyxis run "Draft a concise plan" --stream
+```
+
 运行时保存审计 snapshot：
 
 ```bash
@@ -73,6 +79,15 @@ pyxis run "Plan a simple research workflow" --save-snapshot session-audit.json
 
 ```bash
 pyxis run "..." --approve
+```
+
+检查 snapshot、查看/清空本地 CLI memory、运行 workflow demo：
+
+```bash
+pyxis inspect session-audit.json
+pyxis memory show
+pyxis memory clear
+pyxis workflow demo
 ```
 
 ## OpenAI-Compatible Provider

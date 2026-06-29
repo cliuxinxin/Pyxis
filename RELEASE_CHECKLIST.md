@@ -40,6 +40,10 @@ python3 -m venv /tmp/pyxis-release-check
 /tmp/pyxis-release-check/bin/python -c "import pyxis; print(pyxis.Pyxis)"
 /tmp/pyxis-release-check/bin/pyxis --env-file .env.example doctor
 /tmp/pyxis-release-check/bin/pyxis --env-file missing.env demo
+/tmp/pyxis-release-check/bin/pyxis --env-file missing.env workflow demo
+/tmp/pyxis-release-check/bin/pyxis --env-file missing.env memory show
+printf '{"agent":{"name":"navigator"},"events":[]}' > /tmp/pyxis-release-check/session-audit.json
+/tmp/pyxis-release-check/bin/pyxis --env-file missing.env inspect /tmp/pyxis-release-check/session-audit.json
 ```
 
 After pushing to GitHub, confirm the CI workflow passes on `main`.

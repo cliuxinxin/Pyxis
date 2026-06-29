@@ -21,6 +21,8 @@ workflows.
 - Reflective workflow steps for ask, reflect, and revise loops.
 - Provider-native token streaming for OpenAI-compatible providers.
 - `pyxis demo` and Pi-like guided planning example.
+- CLI snapshot inspection, memory show/clear, streaming run, and workflow demo
+  commands.
 - Concept documentation for sessions, checkpoints, tool actions, and workflows.
 - Snapshot restore through registered callable catalogs.
 - Provider contract fields for usage, finish reasons, timeout, and cancellation.
@@ -44,7 +46,7 @@ workflows.
 - Stable provider protocol for complete and stream calls.
 - Complete policy and consent semantics.
 - Stable event schema and observability coverage.
-- CLI inspect, memory, stream, and workflow demo commands.
+- CLI packaging smoke tests for inspect, memory, stream, and workflow commands.
 - Expanded CI packaging and install checks.
 - Synchronized English and Chinese documentation.
 

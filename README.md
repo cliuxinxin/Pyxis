@@ -34,7 +34,8 @@ interruptible, and extensible.
   variables and provider-native streaming.
 - JSON-safe snapshots with optional redaction.
 - Snapshot restore through explicit tool and workflow catalogs.
-- CLI commands for `doctor`, `run`, and local `demo`.
+- CLI commands for `doctor`, `run`, `inspect`, `memory`, `workflow`, and local
+  `demo`.
 
 ## Install
 
@@ -83,6 +84,12 @@ Run a prompt with the configured provider:
 pyxis run "Plan a simple research workflow"
 ```
 
+Stream provider-native deltas when available:
+
+```bash
+pyxis run "Draft a concise plan" --stream
+```
+
 Save an audit snapshot while running:
 
 ```bash
@@ -93,6 +100,25 @@ Approve a checkpoint produced by a run:
 
 ```bash
 pyxis run "..." --approve
+```
+
+Inspect a snapshot:
+
+```bash
+pyxis inspect session-audit.json
+```
+
+Show or clear local CLI memory:
+
+```bash
+pyxis memory show
+pyxis memory clear
+```
+
+Run the local workflow demo:
+
+```bash
+pyxis workflow demo
 ```
 
 ## Provider Configuration

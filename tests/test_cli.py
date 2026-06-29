@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -92,6 +93,52 @@ def test_run_prints_output_and_saves_snapshot(monkeypatch, tmp_path, capsys) -> 
     assert "hello from cli" in captured.out
     assert f"Snapshot saved to {snapshot_path}" in captured.out
     assert Path(snapshot_path).exists()
+    assert "secret-value" not in captured.out
+
+
+def test_run_stream_prints_provider_deltas(monkeypatch, tmp_path, capsys) -> None:
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost")
+    monkeypatch.setenv("OPENAI_API_KEY", "secret-value")
+    monkeypatch.setenv("OPENAI_MODEL", "test-model")
+
+    class FakeSession:
+        def stream(self, prompt: str):
+            assert prompt == "hello"
+            yield SimpleNamespace(type="start", data={"input": prompt})
+            yield SimpleNamespace(type="delta", data={"text": "hel"})
+            yield SimpleNamespace(type="delta", data={"text": "lo"})
+            yield SimpleNamespace(type="result", data={"output": "hello"})
+            yield SimpleNamespace(type="done", data={"output": "hello"})
+
+    class FakePyxis:
+        def __init__(self, agent) -> None:
+            self.agent = agent
+
+        def session(self):
+            return FakeSession()
+
+    class FakeProvider:
+        def __init__(self, *, model: str) -> None:
+            self.model = model
+
+    monkeypatch.setattr(cli, "OpenAICompatibleProvider", FakeProvider)
+    monkeypatch.setattr(cli, "Pyxis", FakePyxis)
+
+    code = cli.main(
+        [
+            "--env-file",
+            "missing.env",
+            "--memory-file",
+            str(tmp_path / "memory.json"),
+            "run",
+            "hello",
+            "--stream",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "hello" in captured.out
     assert "secret-value" not in captured.out
 
 
@@ -216,3 +263,66 @@ def test_checkpoint_prompt_has_safe_fallbacks() -> None:
     assert "Action: unknown" in prompt
     assert "Reason: This action requires confirmation." in prompt
     assert "Checkpoint: checkpoint-1" in prompt
+
+
+def test_inspect_snapshot_prints_summary(tmp_path, capsys) -> None:
+    snapshot = {
+        "agent": {"name": "navigator", "tools": [{"name": "search"}]},
+        "dialogue": {"messages": [{"role": "user", "content": "hello"}]},
+        "events": [{"type": "UserMessageReceived"}],
+        "checkpoints": [{"id": "checkpoint-1"}],
+        "pending_tool_calls": {"checkpoint-1": {"name": "search"}},
+        "pending_workflows": {},
+    }
+    snapshot_path = tmp_path / "snapshot.json"
+    snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+
+    code = cli.main(["--env-file", "missing.env", "inspect", str(snapshot_path)])
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Pyxis snapshot" in captured.out
+    assert "agent: navigator" in captured.out
+    assert "pending_tool_calls: 1" in captured.out
+
+
+def test_memory_show_and_clear(tmp_path, capsys) -> None:
+    memory_path = tmp_path / "memory.json"
+    memory_path.write_text(
+        json.dumps(
+            {
+                "preferences": {"tone": "concise"},
+                "project": {"name": "Pyxis", "description": None, "metadata": {}},
+                "scratchpad": {"draft": "hello"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    show_code = cli.main(
+        ["--env-file", "missing.env", "--memory-file", str(memory_path), "memory", "show"]
+    )
+    show_output = capsys.readouterr().out
+    clear_code = cli.main(
+        ["--env-file", "missing.env", "--memory-file", str(memory_path), "memory", "clear"]
+    )
+    clear_output = capsys.readouterr().out
+
+    assert show_code == 0
+    assert '"tone": "concise"' in show_output
+    assert clear_code == 0
+    assert "Memory cleared" in clear_output
+    assert json.loads(memory_path.read_text(encoding="utf-8"))["preferences"] == {}
+
+
+def test_workflow_demo_runs_without_provider_env(monkeypatch, capsys) -> None:
+    for name in cli.REQUIRED_OPENAI_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+    code = cli.main(["--env-file", "missing.env", "workflow", "demo"])
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Pyxis workflow demo" in captured.out
+    assert "Workflow: release-notes" in captured.out
+    assert "Paused:" in captured.out

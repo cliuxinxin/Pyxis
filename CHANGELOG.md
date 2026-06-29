@@ -16,6 +16,8 @@ All notable changes to Pyxis will be documented in this file.
   checkpoint options.
 - Stable event schemas with provider lifecycle, workflow step, checkpoint,
   policy, and session restore observability.
+- CLI commands for snapshot inspection, local memory show/clear, streaming runs,
+  and workflow demos.
 - Tool argument validation for required parameters, unexpected parameters,
   defaults, common annotations, and `typing.Literal`.
 - Public `ToolValidationError` for invalid tool calls.
