@@ -13,6 +13,16 @@ from pyxis.dialogue import (
     TonePolicy,
     UserGoal,
 )
+from pyxis.errors import (
+    CheckpointNotApproved,
+    CheckpointNotFound,
+    CheckpointRejected,
+    ProviderConfigurationError,
+    ProviderRequestError,
+    ToolExecutionError,
+    ToolNotFound,
+    ToolValidationError,
+)
 from pyxis.events import Event, EventLog
 from pyxis.memory import (
     InMemory,
@@ -37,6 +47,9 @@ __all__ = [
     "AgentActionType",
     "AgentResult",
     "Checkpoint",
+    "CheckpointNotApproved",
+    "CheckpointNotFound",
+    "CheckpointRejected",
     "CheckpointStatus",
     "Clarification",
     "CompletionChunk",
@@ -57,6 +70,8 @@ __all__ = [
     "NoMemory",
     "OpenAICompatibleProvider",
     "Provider",
+    "ProviderConfigurationError",
+    "ProviderRequestError",
     "ProjectContext",
     "Pyxis",
     "ResponseStyle",
@@ -65,7 +80,10 @@ __all__ = [
     "StreamEvent",
     "Tool",
     "ToolCall",
+    "ToolExecutionError",
+    "ToolNotFound",
     "ToolResult",
+    "ToolValidationError",
     "TonePolicy",
     "UserGoal",
     "UserPreferences",

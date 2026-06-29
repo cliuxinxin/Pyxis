@@ -11,7 +11,13 @@ from pyxis.agent import Agent
 from pyxis.checkpoint import Checkpoint, CheckpointStatus
 from pyxis.compass import Compass, CompassDecisionType
 from pyxis.dialogue import Dialogue
-from pyxis.errors import CheckpointNotApproved, CheckpointNotFound, CheckpointRejected, ToolNotFound
+from pyxis.errors import (
+    CheckpointNotApproved,
+    CheckpointNotFound,
+    CheckpointRejected,
+    ToolNotFound,
+    ToolValidationError,
+)
 from pyxis.events import EventLog
 from pyxis.policy import ControlPolicy
 from pyxis.results import NavigationResult, StreamEvent, ToolResult, WorkflowResult
@@ -291,6 +297,12 @@ class Session:
         tool = self.agent.get_tool(name)
         if tool is None:
             raise ToolNotFound(f"Agent {self.agent.name!r} does not have tool {name!r}.")
+
+        try:
+            tool.validate_arguments(*args, **kwargs)
+        except ToolValidationError as exc:
+            self.events.emit("ToolValidationFailed", tool=tool.name, error=str(exc))
+            raise
 
         action = tool.action or "tool_call"
         call = ToolCall(

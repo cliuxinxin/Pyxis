@@ -131,6 +131,8 @@ for event in session.stream("Draft a concise plan"):
 
 ## Core Concepts
 
+- [API Reference](API_REFERENCE.md): public API surface, compatibility policy,
+  and deprecation policy.
 - [Session](docs/concepts/session.md): shared working context, dialogue,
   events, snapshots, and streaming.
 - [Checkpoint](docs/concepts/checkpoint.md): human approval before sensitive

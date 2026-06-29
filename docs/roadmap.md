@@ -25,11 +25,26 @@ workflows.
 
 ## Near-Term
 
-- Stronger tool argument validation beyond the current signature-derived schema.
+- Snapshot restore through registered callable catalogs.
+- Provider contract finalization for finish reasons, cancellation, and retry
+  semantics.
+- Policy matrix for approval mode, action allow/deny lists, and risk overrides.
 - Richer retry policies for tools beyond the current provider retry/backoff support.
 - More detailed workflow step events.
 - Custom snapshot redaction policies beyond the current default redaction keys.
 - Versioned release automation beyond the current manual checklist.
+
+## 1.0 Readiness
+
+- Public API reference and compatibility policy.
+- Strong tool argument validation.
+- Snapshot restore for sessions, pending tool calls, and workflows.
+- Stable provider protocol for complete and stream calls.
+- Complete policy and consent semantics.
+- Stable event schema and observability coverage.
+- CLI inspect, memory, stream, and workflow demo commands.
+- Expanded CI packaging and install checks.
+- Synchronized English and Chinese documentation.
 
 ## Later
 

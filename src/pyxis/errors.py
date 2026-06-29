@@ -25,6 +25,10 @@ class ToolExecutionError(PyxisError):
     """Raised when a tool fails during execution."""
 
 
+class ToolValidationError(PyxisError):
+    """Raised when a tool call does not match the tool signature."""
+
+
 class ToolNotFound(PyxisError):
     """Raised when an agent does not have a requested tool."""
 

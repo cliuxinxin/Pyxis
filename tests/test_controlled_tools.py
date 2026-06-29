@@ -1,7 +1,12 @@
 import pytest
 
 from pyxis import Agent, CheckpointStatus, Pyxis, tool
-from pyxis.errors import CheckpointNotApproved, CheckpointRejected, ToolNotFound
+from pyxis.errors import (
+    CheckpointNotApproved,
+    CheckpointRejected,
+    ToolNotFound,
+    ToolValidationError,
+)
 
 
 def test_low_risk_tool_executes_immediately() -> None:
@@ -96,3 +101,18 @@ def test_missing_tool_raises_clear_error() -> None:
 
     with pytest.raises(ToolNotFound):
         session.call_tool("missing")
+
+
+def test_invalid_tool_arguments_fail_before_checkpoint() -> None:
+    @tool(risk="high", action="file_write")
+    def write_file(path: str, content: str) -> str:
+        return path
+
+    session = Pyxis(agent=Agent(name="navigator", tools=[write_file])).session()
+
+    with pytest.raises(ToolValidationError, match="missing a required argument"):
+        session.call_tool("write_file", "demo.txt")
+
+    assert session.checkpoints == []
+    assert session.pending_tool_calls == {}
+    assert [event.type for event in session.events] == ["ToolValidationFailed"]

@@ -6,9 +6,10 @@ import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any
+from types import UnionType
+from typing import Any, Literal, Union, get_args, get_origin
 
-from pyxis.errors import ToolExecutionError
+from pyxis.errors import ToolExecutionError, ToolValidationError
 from pyxis.results import ToolResult
 from pyxis.serialization import to_jsonable
 from pyxis.types import JsonDict, RiskLevel
@@ -79,7 +80,31 @@ class Tool:
 
         return parameters
 
+    def validate_arguments(self, *args: Any, **kwargs: Any) -> None:
+        """Validate a tool call against the callable signature and annotations."""
+
+        signature = inspect.signature(self.fn)
+        try:
+            bound = signature.bind(*args, **kwargs)
+            bound.apply_defaults()
+        except TypeError as exc:
+            raise ToolValidationError(
+                f"Tool {self.name!r} arguments are invalid: {exc}"
+            ) from exc
+
+        for name, value in bound.arguments.items():
+            parameter = signature.parameters[name]
+            annotation = parameter.annotation
+            if not _matches_annotation(value, annotation):
+                expected = _annotation_name(annotation)
+                actual = type(value).__name__
+                raise ToolValidationError(
+                    f"Tool {self.name!r} argument {name!r} expected {expected}, "
+                    f"got {actual}."
+                )
+
     def __call__(self, *args: Any, **kwargs: Any) -> ToolResult:
+        self.validate_arguments(*args, **kwargs)
         try:
             output = self.fn(*args, **kwargs)
         except Exception as exc:  # pragma: no cover - exact exception is user code.
@@ -133,3 +158,39 @@ def _annotation_name(annotation: Any) -> str:
 
     text = str(annotation)
     return text.replace("typing.", "")
+
+
+def _matches_annotation(value: Any, annotation: Any) -> bool:
+    if annotation is inspect.Signature.empty or annotation is Any:
+        return True
+
+    if isinstance(annotation, str):
+        return True
+
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+
+    if origin in {Union, UnionType}:
+        return any(_matches_annotation(value, option) for option in args)
+
+    if origin is Literal:
+        return value in args
+
+    if origin is not None:
+        if origin in {list, dict, tuple, set}:
+            return isinstance(value, origin)
+        return True
+
+    if annotation is bool:
+        return isinstance(value, bool)
+    if annotation is int:
+        return isinstance(value, int) and not isinstance(value, bool)
+    if annotation is float:
+        return isinstance(value, int | float) and not isinstance(value, bool)
+    if annotation in {str, bytes, dict, list, tuple, set}:
+        return isinstance(value, annotation)
+
+    if isinstance(annotation, type):
+        return isinstance(value, annotation)
+
+    return True

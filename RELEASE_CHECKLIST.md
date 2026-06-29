@@ -67,6 +67,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 ## Documentation Review
 
 - `README.md` explains install, CLI, providers, snapshots, tools, and workflows.
+- `API_REFERENCE.md` documents public API, compatibility, and deprecation policy.
 - `README.zh-CN.md` mirrors the main usage path in Chinese.
 - `CHANGELOG.md` describes the `0.1.1` release.
 - `CONTRIBUTING.md` documents local development and safety expectations.

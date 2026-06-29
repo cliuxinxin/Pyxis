@@ -2,6 +2,16 @@
 
 All notable changes to Pyxis will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Initial `API_REFERENCE.md` with public API surface, compatibility policy, and
+  deprecation process.
+- Tool argument validation for required parameters, unexpected parameters,
+  defaults, common annotations, and `typing.Literal`.
+- Public `ToolValidationError` for invalid tool calls.
+
 ## 0.1.1 - 2026-06-29
 
 Human-centered refinement release.

@@ -22,6 +22,31 @@ def write_file(path: str, content: str) -> str:
 - `action`: domain action, such as `summarize`, `shell_exec`, or `file_write`.
 - `parameters`: a signature-derived schema used in the tool manifest.
 
+## Argument Validation
+
+Pyxis validates tool arguments before execution or checkpoint creation.
+
+Validation covers:
+
+- missing required arguments
+- unexpected arguments
+- duplicate values for the same argument
+- default values declared on the Python function
+- common annotations such as `str`, `int`, `float`, `bool`, `list`, `dict`, and
+  `typing.Literal`
+
+Invalid calls raise `ToolValidationError` and emit `ToolValidationFailed` when
+they happen through a `Session`.
+
+```python
+from pyxis import ToolValidationError
+
+try:
+    session.call_tool("write_file", "notes.txt")
+except ToolValidationError as error:
+    print(error)
+```
+
 ## Agent Action Protocol
 
 Agents can request a tool call by returning JSON:
