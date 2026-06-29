@@ -41,6 +41,8 @@ python3 -m venv /tmp/pyxis-release-check
 /tmp/pyxis-release-check/bin/pyxis --env-file .env.example doctor
 ```
 
+After pushing to GitHub, confirm the CI workflow passes on `main`.
+
 ## Public API Review
 
 The top-level `pyxis` package should expose the main user-facing primitives:
@@ -65,6 +67,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `CHANGELOG.md` describes the `0.1.0` MVP.
 - `CONTRIBUTING.md` documents local development and safety expectations.
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
+- `.github/workflows/ci.yml` runs tests, lint, and build checks.
 
 ## Secret Safety
 
@@ -90,3 +93,4 @@ The current release candidate has been checked with:
 - sdist content inspection
 - wheel install in a temporary virtual environment
 - installed `pyxis doctor` smoke test
+- local review of `.github/workflows/ci.yml`
