@@ -1,6 +1,8 @@
 import json
 
-from pyxis import Agent, Pyxis, Workflow, tool
+import pytest
+
+from pyxis import Agent, Pyxis, Workflow, load_snapshot, save_snapshot, tool
 
 
 def test_session_snapshot_is_json_serializable() -> None:
@@ -42,3 +44,29 @@ def test_session_snapshot_includes_pending_workflow() -> None:
     assert pending["state"] == "Pyxis"
     assert pending["next_step"] == 2
     assert pending["completed_steps"] == ["clean"]
+
+
+def test_session_save_snapshot_round_trips_json(tmp_path) -> None:
+    session = Pyxis(agent=Agent(name="navigator")).session()
+    session.navigate("hello")
+
+    path = session.save_snapshot(tmp_path / "audit" / "session.json")
+    loaded = load_snapshot(path)
+
+    assert path.exists()
+    assert loaded["agent"]["name"] == "navigator"
+    assert loaded["dialogue"]["messages"][0]["content"] == "hello"
+
+
+def test_save_snapshot_helper_round_trips_json(tmp_path) -> None:
+    path = save_snapshot({"kind": "session", "events": []}, tmp_path / "snapshot.json")
+
+    assert load_snapshot(path) == {"kind": "session", "events": []}
+
+
+def test_load_snapshot_rejects_non_object_json(tmp_path) -> None:
+    path = tmp_path / "snapshot.json"
+    path.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        load_snapshot(path)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from pyxis.actions import AgentActionType, parse_agent_action
@@ -15,6 +16,7 @@ from pyxis.events import EventLog
 from pyxis.policy import ControlPolicy
 from pyxis.results import NavigationResult, ToolResult, WorkflowResult
 from pyxis.serialization import to_jsonable
+from pyxis.snapshots import save_snapshot
 from pyxis.tools import ToolCall
 from pyxis.workflow import Workflow
 
@@ -278,6 +280,11 @@ class Session:
                 for checkpoint_id, pending in self.pending_workflows.items()
             },
         }
+
+    def save_snapshot(self, path: str | Path) -> Path:
+        """Save the current session snapshot to a JSON file."""
+
+        return save_snapshot(self.snapshot(), path)
 
     def run(self, workflow: Workflow, value: Any) -> WorkflowResult:
         self.events.emit("WorkflowStarted", workflow=workflow.name)

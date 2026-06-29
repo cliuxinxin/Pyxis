@@ -223,6 +223,15 @@ print(snapshot["checkpoints"])
 Snapshot 包含 dialogue、events、checkpoints、pending tool calls 和 pending
 workflows。第一版先用于 inspection 和 audit trail，完整持久化恢复可以后续再加。
 
+也可以保存和读取审计快照：
+
+```python
+from pyxis import load_snapshot
+
+session.save_snapshot("session-audit.json")
+snapshot = load_snapshot("session-audit.json")
+```
+
 ## 当前状态
 
 这是 Pyxis 的早期 MVP。第一版先建立清楚的骨架：

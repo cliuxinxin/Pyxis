@@ -11,6 +11,7 @@ from pyxis.providers import MockProvider, OpenAICompatibleProvider, Provider
 from pyxis.pyxis import Pyxis
 from pyxis.results import AgentResult, NavigationResult, ToolResult, WorkflowResult
 from pyxis.session import Session
+from pyxis.snapshots import load_snapshot, save_snapshot
 from pyxis.tools import Tool, ToolCall, tool
 from pyxis.workflow import Workflow
 
@@ -41,6 +42,8 @@ __all__ = [
     "ToolResult",
     "Workflow",
     "WorkflowResult",
+    "load_snapshot",
     "parse_agent_action",
+    "save_snapshot",
     "tool",
 ]

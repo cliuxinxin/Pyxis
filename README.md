@@ -75,6 +75,15 @@ Snapshots include dialogue, events, checkpoints, pending tool calls, and pending
 workflows. They are intended for inspection first; full persistence and
 callable restoration can be layered on later.
 
+You can also save and load audit snapshots:
+
+```python
+from pyxis import load_snapshot
+
+session.save_snapshot("session-audit.json")
+snapshot = load_snapshot("session-audit.json")
+```
+
 ## OpenAI-Compatible Providers
 
 Pyxis can call OpenAI-compatible chat completions APIs without requiring an SDK.
