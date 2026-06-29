@@ -3,49 +3,77 @@
 A minimal, human-centered Python agent harness for building controllable AI
 workflows.
 
-Pyxis is named after the mariner's compass constellation. It is designed around
-orientation, navigation, and deliberate movement: not just making an agent act,
-but helping people and agents move through work together with clarity and
-control.
-
-## Why Pyxis
-
-Most agent frameworks begin with automation. Pyxis begins with guidance.
+Pyxis is named after the mariner's compass constellation. It is built around a
+simple idea:
 
 > The conversation is the control surface, and the human stays in the loop.
 
-Pyxis translates the human-centered feel of personal AI systems into a Python
-harness for developers who want workflows that are calm, observable,
-interruptible, and extensible.
+Use Pyxis when you want an agent workflow that can act, but can also pause,
+explain, resume, stream, record events, save snapshots, and keep risky actions
+under human control.
 
-## Current Capabilities
+## What You Get
 
-- Human-centered `Session` navigation with structured `Dialogue` state.
-- `Compass` analysis for ask, plan, act, confirm, or stop decisions.
-- `Intent`, `UserGoal`, `Clarification`, `TonePolicy`, and `ResponseStyle`.
-- Consent-oriented `Checkpoint` objects with summary, reason, preview, options,
-  approve, reject, and resume flows.
-- Bounded `SessionMemory` for user preferences, project context, and scratchpad
-  state.
-- Tool manifests and JSON action parsing for model-requested tool calls.
-- Pausable and reflective workflows with `checkpoint()`, `ask()`, `reflect()`,
-  and `revise()`.
-- OpenAI-compatible provider support with standard `OPENAI_*` environment
-  variables and provider-native streaming.
-- JSON-safe snapshots with schema metadata and configurable redaction.
-- Snapshot restore through explicit tool and workflow catalogs.
-- CLI commands for `doctor`, `run`, `inspect`, `memory`, `workflow`, and local
-  `demo`.
+- A small `Session` runtime for dialogue, tools, checkpoints, workflows, memory,
+  events, and snapshots.
+- Controlled tool calls with argument validation before user code runs.
+- Human approval through `Checkpoint` and configurable `ControlPolicy`.
+- Restorable JSON snapshots through explicit tool and workflow catalogs.
+- OpenAI-compatible provider support with common `OPENAI_*` environment
+  variables, SSE streaming, usage, finish reasons, retries, timeout, and
+  cancellation.
+- Stable event schemas for provider, tool, checkpoint, policy, workflow, and
+  restore observability.
+- A practical CLI for demo, run, stream, inspect, memory, and workflow smoke
+  tests.
+- A PyTorch-like control style: use `navigate()` for the default path, or split
+  the turn into analysis, prompt building, provider calls, action dispatch, and
+  response recording.
 
 ## Install
 
-Install Pyxis from the repository while preparing the release:
+From this repository:
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-## Quick Start
+When published as a package:
+
+```bash
+pip install pyxis-ai
+```
+
+Pyxis has no required model SDK dependency.
+
+## Try It Locally
+
+Run a no-credential demo:
+
+```bash
+pyxis demo
+```
+
+Check provider configuration without printing secrets:
+
+```bash
+pyxis doctor
+```
+
+Run a provider-backed prompt after configuring `OPENAI_BASE_URL`,
+`OPENAI_API_KEY`, and `OPENAI_MODEL`:
+
+```bash
+pyxis run "Plan a simple research workflow"
+pyxis run "Draft a concise plan" --stream
+pyxis run "Plan a simple research workflow" --save-snapshot session-audit.json
+pyxis inspect session-audit.json
+```
+
+CLI defaults to `.env.local` and `.pyxis-memory.json`. Both are local-first;
+`.env.local` should hold real credentials and stay out of git.
+
+## 3-Minute Python Start
 
 ```python
 from pyxis import Agent, MockProvider, Pyxis
@@ -56,77 +84,57 @@ agent = Agent(
     provider=MockProvider(output="Here is a concise plan."),
 )
 
-result = Pyxis(agent=agent).navigate("Plan a simple research workflow")
+session = Pyxis(agent=agent).session()
+result = session.navigate("Plan a controlled research workflow")
+
 print(result.decision)
 print(result.output)
 ```
 
-## CLI
+`Session.navigate()` is the main entry point. It records dialogue, asks the
+`Compass` what kind of step is needed, runs the agent when appropriate, and
+records observable events.
 
-Run a local demo without provider credentials:
+## Write Your Own Loop
 
-```bash
-pyxis demo
+The high-level API is only a convenience. Advanced users can control the turn
+step by step:
+
+```python
+analysis = session.analyze("Plan a controlled research workflow")
+prompt = session.build_agent_prompt(
+    "Plan a controlled research workflow",
+    analysis,
+)
+
+if prompt is not None:
+    agent_result = session.run_agent(
+        prompt,
+        context={"decision": analysis.decision.type.value},
+    )
+    action = session.parse_action(agent_result.output)
+    output, metadata = session.dispatch_action(
+        action,
+        original_output=agent_result.output,
+    )
+    result = session.record_agent_response(
+        output,
+        decision=analysis.decision.type.value,
+        metadata=metadata,
+    )
 ```
 
-Check provider configuration:
+This keeps Pyxis convenient like a harness, but flexible like a framework: you
+can customize prompting, routing, retries, review steps, or UI handoffs without
+giving up events, checkpoints, policy, or snapshots.
+
+## Use A Real Provider
+
+Pyxis works with OpenAI-compatible chat completions APIs through standard
+environment variables:
 
 ```bash
-pyxis doctor
-```
-
-`doctor` checks `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `OPENAI_MODEL` without
-printing secret values.
-
-Run a prompt with the configured provider:
-
-```bash
-pyxis run "Plan a simple research workflow"
-```
-
-Stream provider-native deltas when available:
-
-```bash
-pyxis run "Draft a concise plan" --stream
-```
-
-Save an audit snapshot while running:
-
-```bash
-pyxis run "Plan a simple research workflow" --save-snapshot session-audit.json
-```
-
-Approve a checkpoint produced by a run:
-
-```bash
-pyxis run "..." --approve
-```
-
-Inspect a snapshot:
-
-```bash
-pyxis inspect session-audit.json
-```
-
-Show or clear local CLI memory:
-
-```bash
-pyxis memory show
-pyxis memory clear
-```
-
-Run the local workflow demo:
-
-```bash
-pyxis workflow demo
-```
-
-## Provider Configuration
-
-Pyxis can call OpenAI-compatible chat completions APIs without requiring an SDK.
-
-```bash
-export OPENAI_BASE_URL="https://ark.cn-beijing.volces.com/api/coding/v3"
+export OPENAI_BASE_URL="https://example.com/v1"
 export OPENAI_API_KEY="..."
 export OPENAI_MODEL="your-model"
 ```
@@ -143,12 +151,13 @@ provider = OpenAICompatibleProvider(
 )
 
 agent = Agent(name="navigator", provider=provider)
-result = Pyxis(agent=agent).navigate("Plan a simple research workflow")
+session = Pyxis(agent=agent).session()
+
+result = session.navigate("Plan a simple research workflow")
 print(result.output)
 ```
 
-Provider-native streaming is available through `Session.stream()` when the
-provider supports it:
+Streaming uses the same session:
 
 ```python
 for event in session.stream("Draft a concise plan"):
@@ -156,35 +165,85 @@ for event in session.stream("Draft a concise plan"):
         print(event.data["text"], end="")
 ```
 
-## Core Concepts
+## Add A Controlled Tool
 
-- [API Reference](API_REFERENCE.md): public API surface, compatibility policy,
-  and deprecation policy.
-- [Session](docs/concepts/session.md): shared working context, dialogue,
-  events, snapshots, and streaming.
-- [Checkpoint](docs/concepts/checkpoint.md): human approval before sensitive
-  actions.
-- [Tool Actions](docs/concepts/tool-actions.md): tool metadata, risk, action,
-  and model-requested tool calls.
-- [Workflows](docs/concepts/workflows.md): sequential, checkpointed, and
-  reflective workflows.
-- [Providers](docs/concepts/providers.md): completion, streaming, usage,
-  finish reasons, timeout, and cancellation contract.
-- [Events](docs/concepts/events.md): stable event schemas for observability,
-  snapshots, providers, tools, checkpoints, and workflows.
-- [Safety And Control](docs/guides/safety-control.md): policy modes, deny
-  lists, risk overrides, and checkpoint options.
-- [Cookbook](docs/guides/cookbook.md): small composable usage patterns.
-- [Provider Guide](docs/guides/provider-guide.md): provider contracts,
-  streaming, timeout, cancellation, and errors.
-- [Tool Authoring Guide](docs/guides/tool-authoring.md): tool metadata,
-  validation, policy, and restore expectations.
-- [Migration Guide](docs/guides/migration.md): moving early MVP code toward the
-  1.0 contract.
+Tools are normal Python callables with explicit risk and action metadata.
+Pyxis validates arguments before executing the function.
+
+```python
+from pyxis import Agent, Pyxis, tool
+
+@tool(risk="high", action="file_write")
+def write_file(path: str, content: str) -> str:
+    """Pretend to write content to a file."""
+
+    return f"would write {len(content)} characters to {path}"
+
+session = Pyxis(agent=Agent(name="navigator", tools=[write_file])).session()
+result = session.call_tool("write_file", "notes.txt", content="hello")
+
+if result.requires_confirmation:
+    checkpoint = result.checkpoint
+    print(checkpoint.summary)
+    print(checkpoint.preview)
+```
+
+High-risk actions pause by default. The host application can approve, reject,
+persist, inspect, or render the checkpoint.
+
+## Save And Restore A Session
+
+Snapshots are JSON-safe, versioned, and optionally redacted:
+
+```python
+from pyxis import SnapshotRedactionPolicy
+
+policy = SnapshotRedactionPolicy(redact_keys={"api_key", "customer_email"})
+session.save_snapshot("session-audit.json", redact=True, redaction_policy=policy)
+```
+
+Restore is explicit. Snapshots never import arbitrary Python code:
+
+```python
+from pyxis import SnapshotRestoreCatalog, load_snapshot, restore_session
+
+snapshot = load_snapshot("session-audit.json")
+restored = restore_session(
+    snapshot,
+    catalog=SnapshotRestoreCatalog(tools={"write_file": write_file}),
+)
+```
+
+Pending tool calls and workflows can resume after their callables are registered
+by name.
+
+## Observe What Happened
+
+Every session has an append-only event log:
+
+```python
+for event in session.events:
+    print(event.type, event.payload)
+```
+
+Use `EVENT_SCHEMAS` when building a UI, audit exporter, or test harness that
+needs stable payload contracts.
+
+## CLI Cheat Sheet
+
+```bash
+pyxis demo
+pyxis doctor
+pyxis run "Plan a simple research workflow"
+pyxis run "Draft a concise plan" --stream
+pyxis run "..." --approve
+pyxis inspect session-audit.json
+pyxis memory show
+pyxis memory clear
+pyxis workflow demo
+```
 
 ## Examples
-
-Local examples:
 
 ```bash
 PYTHONPATH=src python3 examples/pi_like_guided_planning.py
@@ -195,18 +254,47 @@ PYTHONPATH=src python3 examples/agent_tool_call.py
 `examples/pi_like_guided_planning.py` does not need provider credentials. The
 OpenAI-compatible examples read `.env.local`; that file is ignored by git.
 
-## Design Direction
+## Documentation
 
-Pyxis is intentionally small at the center:
+Start here:
 
-- no required model provider
-- no required vector database
+- [API Reference](API_REFERENCE.md): stable public API and compatibility policy.
+- [Cookbook](docs/guides/cookbook.md): small composable usage patterns.
+- [Control Flow Guide](docs/guides/control-flow.md): use the default
+  `navigate()` path or write your own loop.
+- [Tool Authoring Guide](docs/guides/tool-authoring.md): tools, validation,
+  policy, and restore expectations.
+- [Provider Guide](docs/guides/provider-guide.md): provider contracts,
+  streaming, timeout, cancellation, and errors.
+- [Safety And Control](docs/guides/safety-control.md): policy modes, deny
+  lists, risk overrides, and checkpoint options.
+- [Migration Guide](docs/guides/migration.md): moving early MVP code to the 1.0
+  contract.
+
+Concept docs:
+
+- [Session](docs/concepts/session.md)
+- [Checkpoint](docs/concepts/checkpoint.md)
+- [Tool Actions](docs/concepts/tool-actions.md)
+- [Workflows](docs/concepts/workflows.md)
+- [Providers](docs/concepts/providers.md)
+- [Events](docs/concepts/events.md)
+
+Chinese entry point:
+
+- [README.zh-CN.md](README.zh-CN.md)
+
+## Design Principles
+
+Pyxis stays small at the center:
+
 - no hidden autonomous loop
+- no required vector database
 - no forced web framework
+- no provider-specific logic in session orchestration
 
-The first milestone is to make the harness feel clear: navigate through
-conversation, make decisions visible, pause before risky actions, compose tools
-and workflows, and add real providers at the edges.
+The core job is to make agent work navigable: visible decisions, controlled
+actions, resumable state, and enough structure for people to stay oriented.
 
 ## Status
 

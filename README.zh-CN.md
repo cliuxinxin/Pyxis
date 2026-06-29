@@ -40,6 +40,7 @@ Pyxis 的核心不是 `Agent.run()`，而是 `Session.navigate()`。
 - [Events](docs/concepts/events.md)：稳定事件 schema 和可观测性。
 - [Safety And Control](docs/guides/safety-control.md)：policy mode、deny list、risk override。
 - [Cookbook](docs/guides/cookbook.md)：可组合的常用模式。
+- [Control Flow Guide](docs/guides/control-flow.md)：像 PyTorch loop 一样拆开控制 turn。
 - [Provider Guide](docs/guides/provider-guide.md)：自定义 provider 指南。
 - [Tool Authoring Guide](docs/guides/tool-authoring.md)：工具编写和参数校验指南。
 - [Migration Guide](docs/guides/migration.md)：从早期 MVP 迁移到 1.0 契约。

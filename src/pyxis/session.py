@@ -60,22 +60,11 @@ class Session:
     pending_workflows: dict[str, PendingWorkflow] = field(default_factory=dict)
 
     def navigate(self, user_input: str, *, requires_confirmation: bool = False) -> NavigationResult:
-        self.dialogue.add("user", user_input)
-        self.events.emit(EventType.USER_MESSAGE_RECEIVED, content=user_input)
-
-        analysis = self.compass.analyze(
+        analysis = self.analyze(
             user_input,
             requires_confirmation=requires_confirmation,
         )
         decision = analysis.decision
-        self._record_analysis(analysis)
-        self.events.emit(
-            EventType.COMPASS_DECISION_MADE,
-            decision=decision.type.value,
-            reason=decision.reason,
-            intent=analysis.intent.type.value,
-            needs_clarification=analysis.intent.needs_clarification,
-        )
 
         metadata: dict[str, Any] = {"analysis": analysis}
 
@@ -94,21 +83,113 @@ class Session:
             )
             output = f"Confirmation required before continuing: {checkpoint.reason}"
         elif decision.type == CompassDecisionType.PROPOSE_PLAN:
-            result = self._run_agent_with_events(
-                f"Propose a concise, controllable plan for this request:\n{user_input}",
+            prompt = self.build_agent_prompt(user_input, analysis)
+            result = self.run_agent(
+                prompt or user_input,
                 context={"decision": decision.type.value},
             )
             output, metadata = self._handle_agent_output(result.output)
         else:
-            result = self._run_agent_with_events(
+            result = self.run_agent(
                 user_input,
                 context={"decision": decision.type.value},
             )
             output, metadata = self._handle_agent_output(result.output)
 
+        return self.record_agent_response(
+            output,
+            decision=decision.type.value,
+            metadata=metadata,
+        )
+
+    def analyze(self, user_input: str, *, requires_confirmation: bool = False):
+        """Record user input and return the compass analysis for one turn."""
+
+        self.dialogue.add("user", user_input)
+        self.events.emit(EventType.USER_MESSAGE_RECEIVED, content=user_input)
+
+        analysis = self.compass.analyze(
+            user_input,
+            requires_confirmation=requires_confirmation,
+        )
+        self._record_analysis(analysis)
+        self.events.emit(
+            EventType.COMPASS_DECISION_MADE,
+            decision=analysis.decision.type.value,
+            reason=analysis.decision.reason,
+            intent=analysis.intent.type.value,
+            needs_clarification=analysis.intent.needs_clarification,
+        )
+        return analysis
+
+    def build_agent_prompt(self, user_input: str, analysis: Any) -> str | None:
+        """Build the provider prompt for an analysis that should run the agent."""
+
+        decision = analysis.decision
+        if decision.type == CompassDecisionType.PROPOSE_PLAN:
+            return f"Propose a concise, controllable plan for this request:\n{user_input}"
+        if decision.type == CompassDecisionType.RUN_AGENT:
+            return user_input
+        return None
+
+    def run_agent(self, prompt: str, *, context: dict[str, Any] | None = None):
+        """Run the session agent while preserving provider lifecycle events."""
+
+        return self._run_agent_with_events(prompt, context=context or {})
+
+    def parse_action(self, output: str):
+        """Parse a model response into the Pyxis action protocol."""
+
+        action = parse_agent_action(output)
+        self.events.emit(EventType.AGENT_ACTION_PARSED, action=action.type.value)
+        return action
+
+    def dispatch_action(
+        self,
+        action,
+        *,
+        original_output: str = "",
+    ) -> tuple[str, dict[str, Any]]:
+        """Dispatch a parsed action into tools, stop handling, or a message."""
+
+        if action.type == AgentActionType.TOOL_CALL:
+            if action.tool is None:
+                return original_output, {"agent_action": action}
+
+            tool_result = self.call_tool(action.tool, *action.args, **action.kwargs)
+            if tool_result.requires_confirmation:
+                message = (
+                    f"Confirmation required before running tool {tool_result.name!r}: "
+                    f"{tool_result.checkpoint.reason}"
+                )
+            else:
+                message = str(tool_result.output)
+
+            return message, {
+                "agent_action": action,
+                "tool_result": tool_result,
+            }
+
+        if action.type == AgentActionType.STOP:
+            return action.content or "Stopped.", {"agent_action": action}
+
+        if action.raw != original_output:
+            return action.content, {"agent_action": action}
+
+        return original_output, {}
+
+    def record_agent_response(
+        self,
+        output: str,
+        *,
+        decision: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> NavigationResult:
+        """Record final agent-facing output and return a navigation result."""
+
         self.dialogue.add("agent", output)
         self.events.emit(EventType.AGENT_RESPONDED, content=output)
-        return NavigationResult(output=output, decision=decision.type.value, metadata=metadata)
+        return NavigationResult(output=output, decision=decision, metadata=metadata or {})
 
     def _record_analysis(self, analysis: Any) -> None:
         self.dialogue.intent = analysis.intent
@@ -318,34 +399,8 @@ class Session:
         return self.agent.provider.__class__.__name__
 
     def _handle_agent_output(self, output: str) -> tuple[str, dict[str, Any]]:
-        action = parse_agent_action(output)
-        self.events.emit(EventType.AGENT_ACTION_PARSED, action=action.type.value)
-
-        if action.type == AgentActionType.TOOL_CALL:
-            if action.tool is None:
-                return output, {"agent_action": action}
-
-            tool_result = self.call_tool(action.tool, *action.args, **action.kwargs)
-            if tool_result.requires_confirmation:
-                message = (
-                    f"Confirmation required before running tool {tool_result.name!r}: "
-                    f"{tool_result.checkpoint.reason}"
-                )
-            else:
-                message = str(tool_result.output)
-
-            return message, {
-                "agent_action": action,
-                "tool_result": tool_result,
-            }
-
-        if action.type == AgentActionType.STOP:
-            return action.content or "Stopped.", {"agent_action": action}
-
-        if action.raw != output:
-            return action.content, {"agent_action": action}
-
-        return output, {}
+        action = self.parse_action(output)
+        return self.dispatch_action(action, original_output=output)
 
     def checkpoint(
         self,

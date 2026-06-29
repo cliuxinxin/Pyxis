@@ -66,6 +66,12 @@ Stable surface:
 
 - `navigate(user_input, *, requires_confirmation=False) -> NavigationResult`
 - `stream(user_input, *, requires_confirmation=False) -> Iterator[StreamEvent]`
+- `analyze(user_input, *, requires_confirmation=False) -> CompassAnalysis`
+- `build_agent_prompt(user_input, analysis) -> str | None`
+- `run_agent(prompt, *, context=None) -> AgentResult`
+- `parse_action(output) -> AgentAction`
+- `dispatch_action(action, *, original_output="") -> tuple[str, dict]`
+- `record_agent_response(output, *, decision, metadata=None) -> NavigationResult`
 - `call_tool(name, *args, **kwargs) -> ToolResult`
 - `checkpoint(...) -> Checkpoint`
 - `approve_checkpoint(checkpoint_id) -> Checkpoint`

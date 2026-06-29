@@ -21,5 +21,8 @@ class Pyxis:
     def session(self) -> Session:
         return Session(agent=self.agent, compass=self.compass, policy=self.policy)
 
-    def navigate(self, user_input: str):
-        return self.session().navigate(user_input)
+    def navigate(self, user_input: str, *, requires_confirmation: bool = False):
+        return self.session().navigate(
+            user_input,
+            requires_confirmation=requires_confirmation,
+        )

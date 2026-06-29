@@ -24,6 +24,7 @@ Stability release for the public Pyxis agent harness contract.
 - Cookbook, migration, provider, and tool authoring guides for 1.0 readiness.
 - OpenAI-compatible stream retries before response open, with no replay after
   stream deltas may have been emitted.
+- Programmable session control primitives for writing custom agent turn loops.
 - Tool argument validation for required parameters, unexpected parameters,
   defaults, common annotations, and `typing.Literal`.
 - Public `ToolValidationError` for invalid tool calls.

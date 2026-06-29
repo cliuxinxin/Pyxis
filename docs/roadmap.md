@@ -37,6 +37,7 @@ workflows.
   guide, tool authoring guide, and safety/control guide.
 - Explicit stream retry semantics: retry before a stream opens, no replay after
   deltas may have been emitted.
+- Programmable turn control primitives for PyTorch-like custom agent loops.
 
 ## Near-Term
 
