@@ -27,6 +27,10 @@ extensible.
 - `Dialogue`: semantic conversation state, not only raw messages.
 - `Compass`: the navigation layer that decides whether to ask, plan, act,
   confirm, or stop.
+- `Intent`, `UserGoal`, and `Clarification`: structured readings of what the
+  user wants before the agent acts.
+- `ResponseStyle`: lightweight response shaping for calm, concise, supportive
+  output.
 - `Checkpoint`: a human confirmation point before sensitive actions.
 - `ControlPolicy`: rules for what can run automatically and what needs review.
 - `Agent`: the role-bound execution body.
@@ -43,6 +47,8 @@ extensible.
 - Pausable workflows with approve, reject, and resume flows.
 - JSON-safe session snapshots and snapshot file persistence.
 - Minimal CLI for configuration checks and one-off runs.
+- Structured dialogue analysis that favors clarification before action when a
+  request is underspecified.
 
 ## Install
 
@@ -213,6 +219,19 @@ print(result.output)
 
 The `Compass` chooses the next move. A request might become a plan, a direct
 agent response, a clarification question, or a checkpoint.
+
+Each turn also records a structured reading of the conversation:
+
+```python
+result = session.navigate("帮我弄一下")
+
+print(session.dialogue.intent)
+print(session.dialogue.clarifications)
+print(result.metadata["analysis"].to_dict())
+```
+
+Pyxis treats vague requests as a chance to clarify the desired outcome before
+acting, while specific requests continue through the agent or planning path.
 
 Sessions can also expose high-level stream events:
 

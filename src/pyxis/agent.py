@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from pyxis.actions import build_action_instructions
+from pyxis.dialogue import ResponseStyle
 from pyxis.memory import Memory, NoMemory
 from pyxis.providers import CompletionRequest, MockProvider, Provider
 from pyxis.results import AgentResult
@@ -20,6 +21,7 @@ class Agent:
     provider: Provider = field(default_factory=MockProvider)
     tools: list[Tool] = field(default_factory=list)
     memory: Memory = field(default_factory=NoMemory)
+    response_style: ResponseStyle = field(default_factory=ResponseStyle)
 
     def run(self, prompt: str, *, context: dict | None = None) -> AgentResult:
         request = CompletionRequest(
@@ -28,7 +30,11 @@ class Agent:
             context={"agent": self.name, **(context or {})},
         )
         result = self.provider.complete(request)
-        return AgentResult(output=result.output, raw=result.raw, metadata=result.metadata)
+        return AgentResult(
+            output=self.response_style.apply(result.output),
+            raw=result.raw,
+            metadata=result.metadata,
+        )
 
     def get_tool(self, name: str) -> Tool | None:
         return next((tool for tool in self.tools if tool.name == name), None)

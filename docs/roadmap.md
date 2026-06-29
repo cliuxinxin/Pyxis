@@ -13,9 +13,14 @@ workflows.
 - Pausable workflows.
 - Session snapshots and snapshot files.
 - Minimal CLI.
+- Structured dialogue analysis with intent, goal, clarification, constraints,
+  preferences, and response styling.
 
 ## Near-Term
 
+- Richer checkpoint summaries, previews, and consent-oriented CLI prompts.
+- Bounded memory primitives for user preferences and project context.
+- Reflective workflow steps for ask, reflect, and revise loops.
 - Provider-native token streaming beyond the current turn-level session events.
 - Stronger tool argument validation beyond the current signature-derived schema.
 - Richer retry policies for tools beyond the current provider retry/backoff support.

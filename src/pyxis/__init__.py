@@ -3,7 +3,16 @@
 from pyxis.actions import AgentAction, AgentActionType, parse_agent_action
 from pyxis.agent import Agent
 from pyxis.checkpoint import Checkpoint, CheckpointStatus
-from pyxis.compass import Compass, CompassDecision, CompassDecisionType
+from pyxis.compass import Compass, CompassAnalysis, CompassDecision, CompassDecisionType
+from pyxis.dialogue import (
+    Clarification,
+    Dialogue,
+    Intent,
+    IntentType,
+    ResponseStyle,
+    TonePolicy,
+    UserGoal,
+)
 from pyxis.events import Event, EventLog
 from pyxis.memory import InMemory, Memory, NoMemory
 from pyxis.policy import ControlPolicy
@@ -22,13 +31,18 @@ __all__ = [
     "AgentResult",
     "Checkpoint",
     "CheckpointStatus",
+    "Clarification",
     "Compass",
+    "CompassAnalysis",
     "CompassDecision",
     "CompassDecisionType",
     "ControlPolicy",
+    "Dialogue",
     "Event",
     "EventLog",
     "InMemory",
+    "Intent",
+    "IntentType",
     "Memory",
     "MockProvider",
     "NavigationResult",
@@ -36,11 +50,14 @@ __all__ = [
     "OpenAICompatibleProvider",
     "Provider",
     "Pyxis",
+    "ResponseStyle",
     "Session",
     "StreamEvent",
     "Tool",
     "ToolCall",
     "ToolResult",
+    "TonePolicy",
+    "UserGoal",
     "Workflow",
     "WorkflowResult",
     "load_snapshot",

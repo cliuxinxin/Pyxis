@@ -56,14 +56,21 @@ class Session:
         self.dialogue.add("user", user_input)
         self.events.emit("UserMessageReceived", content=user_input)
 
-        decision = self.compass.decide(user_input, requires_confirmation=requires_confirmation)
+        analysis = self.compass.analyze(
+            user_input,
+            requires_confirmation=requires_confirmation,
+        )
+        decision = analysis.decision
+        self._record_analysis(analysis)
         self.events.emit(
             "CompassDecisionMade",
             decision=decision.type.value,
             reason=decision.reason,
+            intent=analysis.intent.type.value,
+            needs_clarification=analysis.intent.needs_clarification,
         )
 
-        metadata: dict[str, Any] = {}
+        metadata: dict[str, Any] = {"analysis": analysis}
 
         if decision.type == CompassDecisionType.ASK_CLARIFICATION:
             output = decision.prompt or "Can you clarify what you want to do next?"
@@ -89,6 +96,19 @@ class Session:
         self.dialogue.add("agent", output)
         self.events.emit("AgentResponded", content=output)
         return NavigationResult(output=output, decision=decision.type.value, metadata=metadata)
+
+    def _record_analysis(self, analysis: Any) -> None:
+        self.dialogue.intent = analysis.intent
+        if analysis.goal is not None:
+            self.dialogue.goal = analysis.goal
+            self.dialogue.user_goal = analysis.goal.text
+        for constraint in analysis.constraints:
+            if constraint not in self.dialogue.constraints:
+                self.dialogue.constraints.append(constraint)
+        self.dialogue.preferences.update(analysis.preferences)
+        if analysis.clarification is not None:
+            self.dialogue.clarifications.append(analysis.clarification)
+            self.dialogue.open_questions.append(analysis.clarification.question)
 
     def stream(
         self,
