@@ -15,6 +15,9 @@ class WorkflowStepKind(str, Enum):
 
     CALLABLE = "callable"
     CHECKPOINT = "checkpoint"
+    ASK = "ask"
+    REFLECT = "reflect"
+    REVISE = "revise"
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,7 @@ class WorkflowStep:
     fn: Callable[[Any], Any] | None = None
     kind: WorkflowStepKind = WorkflowStepKind.CALLABLE
     reason: str = ""
+    prompt: str = ""
 
 
 @dataclass
@@ -48,6 +52,45 @@ class Workflow:
         )
         return self
 
+    def ask(self, prompt: str, *, name: str | None = None) -> Workflow:
+        """Pause the workflow to ask the user for direction."""
+
+        self.steps.append(
+            WorkflowStep(
+                name=name or "ask",
+                kind=WorkflowStepKind.ASK,
+                reason="Workflow needs user direction.",
+                prompt=prompt,
+            )
+        )
+        return self
+
+    def reflect(self, prompt: str, *, name: str | None = None) -> Workflow:
+        """Pause the workflow to check whether the current output is useful."""
+
+        self.steps.append(
+            WorkflowStep(
+                name=name or "reflect",
+                kind=WorkflowStepKind.REFLECT,
+                reason="Workflow paused for reflection.",
+                prompt=prompt,
+            )
+        )
+        return self
+
+    def revise(self, prompt: str, *, name: str | None = None) -> Workflow:
+        """Pause the workflow to let the user redirect or revise the work."""
+
+        self.steps.append(
+            WorkflowStep(
+                name=name or "revise",
+                kind=WorkflowStepKind.REVISE,
+                reason="Workflow paused for revision.",
+                prompt=prompt,
+            )
+        )
+        return self
+
     def run(
         self,
         value: Any,
@@ -59,7 +102,7 @@ class Workflow:
         completed_steps = list(completed or [])
         for index in range(start_at, len(self.steps)):
             step = self.steps[index]
-            if step.kind == WorkflowStepKind.CHECKPOINT:
+            if step.kind != WorkflowStepKind.CALLABLE:
                 return WorkflowResult(
                     name=self.name,
                     output=current,
@@ -67,7 +110,12 @@ class Workflow:
                     paused=True,
                     current_step=index,
                     state=current,
-                    metadata={"reason": step.reason, "step": step.name},
+                    metadata={
+                        "kind": step.kind.value,
+                        "reason": step.reason,
+                        "step": step.name,
+                        "prompt": step.prompt,
+                    },
                 )
 
             if step.fn is None:

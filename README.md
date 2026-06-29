@@ -427,6 +427,22 @@ if result.paused:
 print(result.output)
 ```
 
+Reflective workflows can pause to ask, reflect, or revise before continuing:
+
+```python
+workflow = (
+    Workflow("guided-draft")
+    .step("clean", lambda text: text.strip())
+    .reflect("Check if the output matches the user's goal")
+    .ask("Does this direction look right?")
+    .revise("What should change before the final draft?")
+    .step("finish", lambda text: f"Final: {text}")
+)
+```
+
+These steps use the same checkpoint/resume flow, but their metadata makes the
+pause feel like calibration rather than a mechanical gate.
+
 ## Design Direction
 
 Pyxis is intentionally small at the center:

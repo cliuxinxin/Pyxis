@@ -386,18 +386,24 @@ class Session:
     ) -> WorkflowResult:
         result = workflow.run(value, start_at=start_at, completed=completed)
         if result.paused:
+            step_kind = str(result.metadata.get("kind") or "checkpoint")
+            prompt = str(result.metadata.get("prompt") or "")
+            step_name = str(result.metadata.get("step") or step_kind)
+            reason = str(result.metadata.get("reason") or "Workflow checkpoint.")
             checkpoint = self.checkpoint(
-                reason=str(result.metadata.get("reason") or "Workflow checkpoint."),
-                action="workflow_checkpoint",
+                reason=reason,
+                action=f"workflow_{step_kind}",
                 payload={
                     "kind": "workflow",
+                    "step_kind": step_kind,
                     "workflow": workflow.name,
-                    "step": result.metadata.get("step"),
+                    "step": step_name,
+                    "prompt": prompt,
                     "current_step": result.current_step,
                 },
-                summary=f"Workflow {workflow.name!r} paused for confirmation.",
-                risk_reason=str(result.metadata.get("reason") or "Workflow checkpoint."),
-                preview=str(result.metadata.get("step") or "checkpoint"),
+                summary=self._workflow_checkpoint_summary(workflow.name, step_kind),
+                risk_reason=reason,
+                preview=prompt or step_name,
             )
             self.pending_workflows[checkpoint.id] = PendingWorkflow(
                 workflow=workflow,
@@ -422,6 +428,15 @@ class Session:
             )
 
         return result
+
+    def _workflow_checkpoint_summary(self, workflow_name: str, step_kind: str) -> str:
+        if step_kind == "ask":
+            return f"Workflow {workflow_name!r} wants to ask for direction."
+        if step_kind == "reflect":
+            return f"Workflow {workflow_name!r} wants to reflect before continuing."
+        if step_kind == "revise":
+            return f"Workflow {workflow_name!r} wants to revise before continuing."
+        return f"Workflow {workflow_name!r} paused for confirmation."
 
     def _preview_tool_call(self, call: ToolCall) -> str:
         arguments: list[str] = []
