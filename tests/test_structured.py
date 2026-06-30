@@ -1,5 +1,9 @@
-from pyxis import Agent, CompletionResult, MockProvider, Pyxis
-
+from pyxis import (
+    Agent,
+    CompletionResult,
+    MockProvider,
+    Pyxis,
+)
 
 SIGNAL_SCHEMA = {
     "type": "object",
@@ -38,7 +42,9 @@ def test_structured_run_returns_valid_json_object() -> None:
 
 
 def test_structured_run_reports_invalid_json() -> None:
-    session = Pyxis(agent=Agent(name="navigator", provider=MockProvider(output="not json"))).session()
+    session = Pyxis(
+        agent=Agent(name="navigator", provider=MockProvider(output="not json"))
+    ).session()
 
     result = session.structured_run("Score this signal", schema=SIGNAL_SCHEMA)
 
@@ -147,7 +153,9 @@ def test_structured_run_records_structured_events() -> None:
 
 
 def test_structured_run_records_validation_failure_events() -> None:
-    session = Pyxis(agent=Agent(name="navigator", provider=MockProvider(output="not json"))).session()
+    session = Pyxis(
+        agent=Agent(name="navigator", provider=MockProvider(output="not json"))
+    ).session()
 
     session.structured_run("Score this signal", schema=SIGNAL_SCHEMA)
 

@@ -2,6 +2,40 @@
 
 All notable changes to Pyxis will be documented in this file.
 
+## 1.0.1 - 2026-06-30
+
+Runtime extensibility release for product integrations such as Astra.
+
+### Added
+
+- Event sinks through `EventSink`, `NullEventSink`, `InMemoryEventSink`, and
+  `EventSinkError` so host applications can persist or forward emitted events.
+- `Session.structured_run()` and `StructuredResult` for lightweight
+  schema-constrained JSON outputs with local validation and retry.
+- Structured output events:
+  `StructuredOutputRequested`, `StructuredOutputParsed`, and
+  `StructuredOutputValidationFailed`.
+- Async execution primitives for IO-heavy applications:
+  `Agent.arun()`, `Session.arun_agent()`, `Session.acall_tool()`,
+  `Session.aresume_checkpoint()`, `Session.arun()`, and
+  `Session.aresume_workflow()`.
+- Async tool support through `Tool.is_async` and `Tool.acall()`.
+- Async workflow support through `Workflow.arun()`.
+- Long-term memory protocol through `MemoryStore`, `MemoryItem`,
+  `NoMemoryStore`, and `InMemoryStore`.
+- Optional `SessionMemory(store=...)` snapshots for attached long-term memory
+  stores.
+- Guides for async execution, structured output, memory stores, and scheduling
+  boundaries.
+
+### Changed
+
+- `EventLog` now accepts optional sinks and supports
+  `append(event, notify=False)` to avoid re-sending restored historical events
+  by default.
+- Synchronous tool and workflow runners now reject async callables with clear
+  errors instead of implicitly owning an event loop.
+
 ## 1.0.0 - 2026-06-29
 
 Stability release for the public Pyxis agent harness contract.

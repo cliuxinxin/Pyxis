@@ -352,6 +352,6 @@ actions, resumable state, and enough structure for people to stay oriented.
 
 ## Status
 
-Pyxis `1.0.0` is the stable 1.x contract for the core harness: public API,
-controlled tools, restorable snapshots, provider streaming, policy/consent
-semantics, event observability, CLI workflows, and synchronized documentation.
+Pyxis `1.x` is the stable contract for the core harness: public API, controlled
+tools, restorable snapshots, provider streaming, policy/consent semantics,
+event observability, CLI workflows, and synchronized documentation.

@@ -6,8 +6,8 @@ Use this checklist before publishing Pyxis.
 
 - Package: `pyxis-ai`
 - Import name: `pyxis`
-- Current version: `1.0.0`
-- Status: release candidate
+- Current version: `1.0.1`
+- Status: patch release candidate
 
 ## Required Checks
 
@@ -29,15 +29,15 @@ rg "<legacy-custom-env-prefix>|sk-|<known-secret-fragment>" .
 Inspect built artifacts:
 
 ```bash
-python3 -m zipfile --list dist/pyxis_ai-1.0.0-py3-none-any.whl
-tar -tzf dist/pyxis_ai-1.0.0.tar.gz
+python3 -m zipfile --list dist/pyxis_ai-1.0.1-py3-none-any.whl
+tar -tzf dist/pyxis_ai-1.0.1.tar.gz
 ```
 
 Install the wheel in a clean environment and smoke test imports and CLI:
 
 ```bash
 python3 -m venv /tmp/pyxis-release-check
-/tmp/pyxis-release-check/bin/python -m pip install dist/pyxis_ai-1.0.0-py3-none-any.whl
+/tmp/pyxis-release-check/bin/python -m pip install dist/pyxis_ai-1.0.1-py3-none-any.whl
 /tmp/pyxis-release-check/bin/python -c "import pyxis; print(pyxis.Pyxis)"
 /tmp/pyxis-release-check/bin/pyxis --env-file .env.example doctor
 /tmp/pyxis-release-check/bin/pyxis --env-file missing.env demo
@@ -62,11 +62,11 @@ Publish through GitHub:
 
 ```bash
 git push origin main
-git tag -a v1.0.0 -m "Pyxis 1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.1 -m "Pyxis 1.0.1"
+git push origin v1.0.1
 ```
 
-Then create a GitHub Release for `v1.0.0` and click **Publish release**. The
+Then create a GitHub Release for `v1.0.1` and click **Publish release**. The
 `Publish` workflow builds the package, checks metadata, and uploads `dist/*` to
 PyPI using `PYPI_API_TOKEN`.
 
@@ -86,14 +86,18 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `CompletionRequest` / `CompletionResult` / `CompletionChunk`
 - `ControlPolicy` / `ApprovalMode` / `PolicyDecision`
 - `Event` / `EventLog` / `EventType` / `EventSchema` / `EVENT_SCHEMAS`
+- `EventSink` / `NullEventSink` / `InMemoryEventSink`
 - `Intent` / `UserGoal` / `Clarification`
 - `SessionMemory` / `UserPreferences` / `ProjectContext`
+- `MemoryStore` / `MemoryItem` / `NoMemoryStore` / `InMemoryStore`
+- `StructuredResult`
 - `Tool` / `tool`
 - `Workflow`
 - `MockProvider`
 - `OpenAICompatibleProvider`
 - `ProviderConfigurationError` / `ProviderRequestError`
 - `ProviderTimeoutError` / `ProviderCancelledError`
+- `EventSinkError`
 - `PolicyDeniedError`
 - `load_snapshot` / `save_snapshot`
 - `snapshot_metadata`
@@ -106,16 +110,20 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 - `README.md` explains install, CLI, providers, snapshots, tools, and workflows.
 - `API_REFERENCE.md` documents public API, compatibility, and deprecation policy.
 - `README.zh-CN.md` mirrors the main usage path in Chinese.
-- `CHANGELOG.md` describes the `1.0.0` release.
+- `CHANGELOG.md` describes the `1.0.1` release.
 - `CONTRIBUTING.md` documents local development and safety expectations.
 - `docs/roadmap.md` lists current, near-term, later, and non-goal items.
 - `docs/concepts/` contains session, checkpoint, tool action, and workflow docs.
 - `docs/concepts/providers.md` documents provider contracts.
 - `docs/concepts/events.md` documents event schemas and observability contracts.
+- `docs/concepts/memory.md` documents memory store boundaries.
+- `docs/guides/async.md` documents async tools, providers, and workflows.
 - `docs/guides/safety-control.md` documents policy and consent behavior.
 - `docs/guides/cookbook.md` documents common usage patterns.
 - `docs/guides/control-flow.md` documents programmable turn control.
 - `docs/guides/provider-guide.md` documents custom provider implementation.
+- `docs/guides/scheduling.md` documents scheduler boundaries.
+- `docs/guides/structured-output.md` documents structured JSON output.
 - `docs/guides/tool-authoring.md` documents tool metadata and validation.
 - `docs/guides/migration.md` documents migration toward the 1.0 contract.
 - `.github/workflows/ci.yml` runs tests, lint, build, package metadata, wheel
@@ -133,7 +141,7 @@ The top-level `pyxis` package should expose the main user-facing primitives:
 
 - Provider adapters beyond OpenAI-compatible chat completions are not included yet.
 
-## 1.0.0 Audit Notes
+## 1.0.1 Audit Notes
 
 The current release candidate has been checked with:
 
