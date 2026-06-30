@@ -23,7 +23,11 @@ under human control.
   variables, SSE streaming, usage, finish reasons, retries, timeout, and
   cancellation.
 - Stable event schemas for provider, tool, checkpoint, policy, workflow, and
-  restore observability.
+  restore observability, with optional event sinks for host storage or UIs.
+- Structured JSON output helpers for lightweight schema-constrained results.
+- Async tools, providers, and workflows for IO-heavy host applications.
+- Long-term memory store protocols that host applications can back with their
+  own storage.
 - A practical CLI for demo, run, stream, inspect, memory, and workflow smoke
   tests.
 - A PyTorch-like control style: use `navigate()` for the default path, or split
@@ -165,6 +169,31 @@ for event in session.stream("Draft a concise plan"):
         print(event.data["text"], end="")
 ```
 
+## Get Structured Output
+
+Use `structured_run()` when a workflow needs strict JSON for signals, briefings,
+scores, or other application objects:
+
+```python
+result = session.structured_run(
+    "Score this signal",
+    schema={
+        "type": "object",
+        "required": ["importance", "reason"],
+        "properties": {
+            "importance": {"type": "number"},
+            "reason": {"type": "string"},
+        },
+    },
+    max_retries=1,
+)
+
+if result.valid:
+    print(result.output["importance"])
+else:
+    print(result.errors)
+```
+
 ## Add A Controlled Tool
 
 Tools are normal Python callables with explicit risk and action metadata.
@@ -190,6 +219,16 @@ if result.requires_confirmation:
 
 High-risk actions pause by default. The host application can approve, reject,
 persist, inspect, or render the checkpoint.
+
+Async tools use the explicit async API:
+
+```python
+@tool(risk="low", action="network_fetch")
+async def fetch_url(url: str) -> str:
+    return f"body:{url}"
+
+result = await session.acall_tool("fetch_url", "https://example.com")
+```
 
 ## Save And Restore A Session
 
@@ -229,6 +268,15 @@ for event in session.events:
 Use `EVENT_SCHEMAS` when building a UI, audit exporter, or test harness that
 needs stable payload contracts.
 
+Applications can attach event sinks when they need to persist or forward events:
+
+```python
+from pyxis import EventLog, InMemoryEventSink, Session
+
+sink = InMemoryEventSink()
+session = Session(agent=agent, events=EventLog(sinks=[sink]))
+```
+
 ## CLI Cheat Sheet
 
 ```bash
@@ -262,6 +310,11 @@ Start here:
 - [Cookbook](docs/guides/cookbook.md): small composable usage patterns.
 - [Control Flow Guide](docs/guides/control-flow.md): use the default
   `navigate()` path or write your own loop.
+- [Structured Output](docs/guides/structured-output.md): parse and validate
+  provider JSON with lightweight schemas.
+- [Async](docs/guides/async.md): async tools, providers, workflows, and resume.
+- [Scheduling](docs/guides/scheduling.md): call Pyxis from cron, workers, or
+  application schedulers without adding scheduling to core.
 - [Tool Authoring Guide](docs/guides/tool-authoring.md): tools, validation,
   policy, and restore expectations.
 - [Provider Guide](docs/guides/provider-guide.md): provider contracts,
@@ -279,6 +332,7 @@ Concept docs:
 - [Workflows](docs/concepts/workflows.md)
 - [Providers](docs/concepts/providers.md)
 - [Events](docs/concepts/events.md)
+- [Memory](docs/concepts/memory.md)
 
 Chinese entry point:
 

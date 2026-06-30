@@ -28,6 +28,8 @@ Pyxis 的核心不是 `Agent.run()`，而是 `Session.navigate()`。
 - `Tool`：工具
 - `Workflow`：可观察、可中断的任务流基础
 - `Provider`：模型供应商接口
+- `EventSink`：把事件写入宿主应用存储或 UI 的外接点
+- `MemoryStore`：长期记忆 adapter 协议
 
 ## 文档入口
 
@@ -38,9 +40,13 @@ Pyxis 的核心不是 `Agent.run()`，而是 `Session.navigate()`。
 - [Workflows](docs/concepts/workflows.md)：顺序、checkpoint、反思型 workflow。
 - [Providers](docs/concepts/providers.md)：completion、streaming、usage、timeout、取消。
 - [Events](docs/concepts/events.md)：稳定事件 schema 和可观测性。
+- [Memory](docs/concepts/memory.md)：session memory 和长期 memory store 协议。
 - [Safety And Control](docs/guides/safety-control.md)：policy mode、deny list、risk override。
 - [Cookbook](docs/guides/cookbook.md)：可组合的常用模式。
 - [Control Flow Guide](docs/guides/control-flow.md)：像 PyTorch loop 一样拆开控制 turn。
+- [Async](docs/guides/async.md)：异步 tool、provider、workflow 和恢复。
+- [Structured Output](docs/guides/structured-output.md)：用轻量 schema 解析和校验 JSON 输出。
+- [Scheduling](docs/guides/scheduling.md)：用外部 scheduler 调用 Pyxis，而不把调度塞进 core。
 - [Provider Guide](docs/guides/provider-guide.md)：自定义 provider 指南。
 - [Tool Authoring Guide](docs/guides/tool-authoring.md)：工具编写和参数校验指南。
 - [Migration Guide](docs/guides/migration.md)：从早期 MVP 迁移到 1.0 契约。
@@ -198,6 +204,31 @@ PYTHONPATH=src python3 examples/agent_tool_call.py
 
 这个示例暴露一个低风险工具和一个高风险工具。低风险工具应该直接执行；高风险工具应该暂停并生成 checkpoint。
 
+## 结构化输出
+
+Astra 这类应用通常需要稳定的 JSON 对象，例如 Signal、Briefing 或 ImportanceScore。
+可以用 `structured_run()` 让 Pyxis 解析并校验 provider 返回值：
+
+```python
+result = session.structured_run(
+    "Score this signal",
+    schema={
+        "type": "object",
+        "required": ["importance", "reason"],
+        "properties": {
+            "importance": {"type": "number"},
+            "reason": {"type": "string"},
+        },
+    },
+    max_retries=1,
+)
+
+if result.valid:
+    print(result.output["importance"])
+else:
+    print(result.errors)
+```
+
 ## 可控工具调用
 
 通过 `Session` 调用工具时，Pyxis 会根据 `ControlPolicy` 判断是否需要 checkpoint。
@@ -229,6 +260,16 @@ print(result.output)
 ```
 
 高风险工具不会立刻执行，而是先暂停并生成 checkpoint。只有确认后，Pyxis 才会恢复执行。
+
+异步工具使用显式 async API：
+
+```python
+@tool(risk="low", action="network_fetch")
+async def fetch_url(url: str) -> str:
+    return f"body:{url}"
+
+result = await session.acall_tool("fetch_url", "https://example.com")
+```
 
 ## Agent 工具调用协议
 
@@ -308,6 +349,18 @@ snapshot = session.snapshot()
 print(snapshot["dialogue"])
 print(snapshot["events"])
 print(snapshot["checkpoints"])
+```
+
+如果宿主应用需要把事件写入数据库或 Web UI，可以给 `EventLog` 挂载 sink：
+
+```python
+from pyxis import Agent, EventLog, InMemoryEventSink, Session
+
+sink = InMemoryEventSink()
+session = Session(
+    agent=Agent(name="navigator"),
+    events=EventLog(sinks=[sink]),
+)
 ```
 
 Snapshot 包含 dialogue、events、checkpoints、pending tool calls 和 pending

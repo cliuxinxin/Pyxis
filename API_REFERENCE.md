@@ -52,6 +52,7 @@ Stable surface:
 
 - `Agent(name, instructions="", provider=..., tools=..., memory=..., response_style=...)`
 - `run(prompt, *, context=None, timeout=None, cancellation_token=None) -> AgentResult`
+- `arun(prompt, *, context=None, timeout=None, cancellation_token=None) -> AgentResult`
 - `stream(prompt, *, context=None, timeout=None, cancellation_token=None) -> Iterator[CompletionChunk]`
 - `completion_request(prompt, *, context=None, timeout=None, cancellation_token=None) -> CompletionRequest`
 - `get_tool(name) -> Tool | None`
@@ -69,16 +70,22 @@ Stable surface:
 - `analyze(user_input, *, requires_confirmation=False) -> CompassAnalysis`
 - `build_agent_prompt(user_input, analysis) -> str | None`
 - `run_agent(prompt, *, context=None) -> AgentResult`
+- `arun_agent(prompt, *, context=None) -> AgentResult`
+- `structured_run(prompt, *, schema, max_retries=0, context=None) -> StructuredResult`
 - `parse_action(output) -> AgentAction`
 - `dispatch_action(action, *, original_output="") -> tuple[str, dict]`
 - `record_agent_response(output, *, decision, metadata=None) -> NavigationResult`
 - `call_tool(name, *args, **kwargs) -> ToolResult`
+- `acall_tool(name, *args, **kwargs) -> ToolResult`
 - `checkpoint(...) -> Checkpoint`
 - `approve_checkpoint(checkpoint_id) -> Checkpoint`
 - `reject_checkpoint(checkpoint_id) -> Checkpoint`
 - `resume_checkpoint(checkpoint_id) -> ToolResult`
+- `aresume_checkpoint(checkpoint_id) -> ToolResult`
 - `run(workflow, value) -> WorkflowResult`
+- `arun(workflow, value) -> WorkflowResult`
 - `resume_workflow(checkpoint_id) -> WorkflowResult`
+- `aresume_workflow(checkpoint_id) -> WorkflowResult`
 - `snapshot(*, redact=False, redaction_policy=None) -> dict`
 - `save_snapshot(path, *, redact=False, redaction_policy=None) -> Path`
 
@@ -112,11 +119,15 @@ Stable surface:
 - `Tool.manifest() -> dict`
 - `Tool.parameter_schema() -> dict`
 - `Tool.validate_arguments(*args, **kwargs) -> None`
+- `Tool.is_async -> bool`
 - `Tool.__call__(*args, **kwargs) -> ToolResult`
+- `Tool.acall(*args, **kwargs) -> ToolResult`
 
 Tool calls are validated before execution. Validation covers callable binding,
 required parameters, unexpected parameters, defaults, and common annotation
 types. Invalid calls raise `ToolValidationError`.
+Synchronous tool execution rejects async tools with a clear error; use
+`Tool.acall()` or `Session.acall_tool()` for `async def` tools.
 
 ### `Workflow`
 
@@ -130,6 +141,11 @@ Stable surface:
 - `reflect(prompt, *, name=None) -> Workflow`
 - `revise(prompt, *, name=None) -> Workflow`
 - `run(value, *, start_at=0, completed=None) -> WorkflowResult`
+- `arun(value, *, start_at=0, completed=None) -> WorkflowResult`
+
+Synchronous workflow runners reject async steps. Use `Workflow.arun()` or
+`Session.arun()` for workflows containing `async def` steps or steps that return
+awaitables.
 
 ### `Checkpoint`
 
@@ -188,8 +204,14 @@ Stable surface:
 
 - `Event(type, payload=..., id=..., created_at=..., schema_version=...)`
 - `Event.to_dict() -> dict`
+- `EventSink.write(event) -> None`
+- `NullEventSink.write(event) -> None`
+- `InMemoryEventSink.write(event) -> None`
+- `InMemoryEventSink.all() -> list[Event]`
+- `InMemoryEventSink.to_list() -> list[dict]`
+- `EventLog(sinks=None)`
 - `EventLog.emit(event_type, **payload) -> Event`
-- `EventLog.append(event) -> None`
+- `EventLog.append(event, *, notify=False) -> None`
 - `EventLog.all() -> list[Event]`
 - `EventLog.to_list() -> list[dict]`
 - `EventType`
@@ -200,7 +222,25 @@ Stable surface:
 Known Pyxis events validate required payload keys through `EventLog.emit()`.
 Unknown event names are allowed for host application events. Stable event
 families cover provider, tool, checkpoint, policy, workflow, dialogue, and
-snapshot restore behavior.
+snapshot restore behavior. Event sinks let host applications persist or forward
+newly emitted events without replacing the in-memory log.
+
+### `StructuredResult`
+
+Structured output result returned by `Session.structured_run()`.
+
+Stable fields:
+
+- `output`
+- `raw_output`
+- `valid`
+- `errors`
+- `metadata`
+
+`structured_run()` uses the provider through the normal agent path, parses the
+response as JSON, validates a lightweight schema subset, and optionally retries
+with validation errors. The first supported schema subset includes `type`,
+`required`, `properties`, `items`, and `enum`.
 
 ### `Memory`
 
@@ -217,6 +257,21 @@ Stable surface:
 - `SessionMemory.set_project_context(...)`
 - `SessionMemory.clear_project_context()`
 - `SessionMemory.clear(key=None)`
+- `SessionMemory(store=...)`
+- `MemoryItem(namespace, key, value, metadata=..., created_at=..., updated_at=...)`
+- `MemoryItem.to_dict() -> dict`
+- `MemoryStore.get(namespace, key, default=None)`
+- `MemoryStore.set(namespace, key, value, *, metadata=None)`
+- `MemoryStore.delete(namespace, key)`
+- `MemoryStore.list(namespace) -> list[MemoryItem]`
+- `MemoryStore.to_dict() -> dict`
+- `NoMemoryStore`
+- `InMemoryStore(items=None)`
+
+`SessionMemory` remains the bounded session-local memory layer. `MemoryStore`
+is the long-term adapter protocol for host applications that want durable
+preferences, feedback, watchlists, or other product memory. Core Pyxis does not
+ship a database-backed adapter.
 
 ### `Provider`
 
@@ -225,6 +280,7 @@ Provider protocol for model backends.
 Stable surface:
 
 - `complete(request: CompletionRequest) -> CompletionResult`
+- Optional `acomplete(request: CompletionRequest) -> CompletionResult`
 - Optional `stream(request: CompletionRequest) -> Iterator[CompletionChunk]`
 
 `CompletionRequest`, `CompletionResult`, and `CompletionChunk` are public data
@@ -245,6 +301,7 @@ requests.
 - `CheckpointNotFound`, `CheckpointNotApproved`, `CheckpointRejected`.
 - `ProviderConfigurationError`, `ProviderRequestError`, `ProviderTimeoutError`,
   `ProviderCancelledError`.
+- `EventSinkError`: an event sink failed to write an emitted event.
 - `SnapshotRestoreError`: a snapshot cannot be restored with the provided
   catalog.
 

@@ -53,5 +53,9 @@ class ProviderCancelledError(ProviderRequestError):
     """Raised when a provider request is cancelled."""
 
 
+class EventSinkError(PyxisError):
+    """Raised when an event sink cannot persist an event."""
+
+
 class SnapshotRestoreError(PyxisError):
     """Raised when a session snapshot cannot be restored."""

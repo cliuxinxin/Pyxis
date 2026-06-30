@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from functools import wraps
 from types import UnionType
 from typing import Any, Literal, Union, get_args, get_origin
 
@@ -103,10 +102,37 @@ class Tool:
                     f"got {actual}."
                 )
 
+    @property
+    def is_async(self) -> bool:
+        """Return whether the underlying tool callable is asynchronous."""
+
+        return inspect.iscoroutinefunction(self.fn)
+
     def __call__(self, *args: Any, **kwargs: Any) -> ToolResult:
+        if self.is_async:
+            raise ToolExecutionError(
+                f"Tool {self.name!r} is async. Use acall_tool() or Tool.acall()."
+            )
         self.validate_arguments(*args, **kwargs)
         try:
             output = self.fn(*args, **kwargs)
+        except Exception as exc:  # pragma: no cover - exact exception is user code.
+            raise ToolExecutionError(f"Tool {self.name!r} failed: {exc}") from exc
+        return ToolResult(
+            name=self.name,
+            output=output,
+            requires_confirmation=False,
+            metadata={"risk": self.risk, **self.metadata},
+        )
+
+    async def acall(self, *args: Any, **kwargs: Any) -> ToolResult:
+        """Execute a sync or async tool and return a ToolResult."""
+
+        self.validate_arguments(*args, **kwargs)
+        try:
+            output = self.fn(*args, **kwargs)
+            if inspect.isawaitable(output):
+                output = await output
         except Exception as exc:  # pragma: no cover - exact exception is user code.
             raise ToolExecutionError(f"Tool {self.name!r} failed: {exc}") from exc
         return ToolResult(
@@ -141,11 +167,7 @@ def tool(
     if fn is None:
         return decorate
 
-    @wraps(fn)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        return fn(*args, **kwargs)
-
-    return decorate(wrapper)
+    return decorate(fn)
 
 
 def _annotation_name(annotation: Any) -> str:

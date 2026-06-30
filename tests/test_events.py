@@ -4,9 +4,13 @@ from pyxis import (
     EVENT_SCHEMA_VERSION,
     EVENT_SCHEMAS,
     Agent,
+    Event,
     EventLog,
+    EventSinkError,
     EventType,
+    InMemoryEventSink,
     MockProvider,
+    NullEventSink,
     Pyxis,
     Workflow,
 )
@@ -25,10 +29,74 @@ def test_event_log_validates_known_event_payloads() -> None:
     assert event.to_dict()["schema_version"] == EVENT_SCHEMA_VERSION
 
 
+def test_event_log_writes_emitted_events_to_sink() -> None:
+    sink = InMemoryEventSink()
+    events = EventLog(sinks=[sink])
+
+    event = events.emit("CustomEvent", value=1)
+
+    assert sink.all() == [event]
+    assert sink.to_list() == [event.to_dict()]
+
+
+def test_event_log_writes_to_multiple_sinks() -> None:
+    first = InMemoryEventSink()
+    second = InMemoryEventSink()
+    events = EventLog(sinks=[first, second])
+
+    event = events.emit("CustomEvent", value=1)
+
+    assert first.all() == [event]
+    assert second.all() == [event]
+
+
+def test_null_event_sink_discards_events() -> None:
+    events = EventLog(sinks=[NullEventSink()])
+
+    event = events.emit("CustomEvent", value=1)
+
+    assert events.all() == [event]
+
+
+def test_event_log_wraps_sink_failures() -> None:
+    class BrokenSink:
+        def write(self, event):
+            raise RuntimeError("database unavailable")
+
+    events = EventLog(sinks=[BrokenSink()])
+
+    with pytest.raises(EventSinkError, match="database unavailable"):
+        events.emit("CustomEvent", value=1)
+
+
+def test_event_log_append_does_not_notify_sinks_by_default() -> None:
+    sink = InMemoryEventSink()
+    events = EventLog(sinks=[sink])
+    event = Event(type="RestoredEvent", payload={"value": 1})
+
+    events.append(event)
+
+    assert events.all() == [event]
+    assert sink.all() == []
+
+
+def test_event_log_append_can_notify_sinks() -> None:
+    sink = InMemoryEventSink()
+    events = EventLog(sinks=[sink])
+    event = Event(type="ImportedEvent", payload={"value": 1})
+
+    events.append(event, notify=True)
+
+    assert sink.all() == [event]
+
+
 def test_event_schemas_include_provider_tool_checkpoint_and_workflow_contracts() -> None:
     assert EVENT_SCHEMAS["ProviderStarted"].required == ("agent", "provider", "mode")
     assert EVENT_SCHEMAS["ToolValidationFailed"].required == ("tool", "error")
     assert EVENT_SCHEMAS["CheckpointResumed"].required == ("checkpoint_id",)
+    assert EVENT_SCHEMAS["StructuredOutputRequested"].required == ("schema",)
+    assert EVENT_SCHEMAS["StructuredOutputParsed"].required == ("valid",)
+    assert EVENT_SCHEMAS["StructuredOutputValidationFailed"].required == ("errors",)
     assert EVENT_SCHEMAS["WorkflowStepCompleted"].required == (
         "workflow",
         "step",

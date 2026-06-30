@@ -23,6 +23,36 @@ print(EVENT_SCHEMAS["ProviderStarted"].required)
 Unknown event names are allowed so applications can append their own local
 events without forking the core.
 
+## Event Sinks
+
+Attach event sinks when a host application needs to persist or forward events to
+SQLite, Postgres, a Web UI, or another runtime surface:
+
+```python
+from pyxis import EventLog, InMemoryEventSink, Session
+
+sink = InMemoryEventSink()
+events = EventLog(sinks=[sink])
+session = Session(agent=agent, events=events)
+```
+
+Sinks implement a small protocol:
+
+```python
+class EventSink:
+    def write(self, event):
+        ...
+```
+
+`EventLog.emit()` writes to the in-memory event log and then to each sink. If a
+sink fails, Pyxis raises `EventSinkError` so the host can decide whether to
+retry, surface the problem, or switch to a different sink.
+
+`EventLog.append(event)` is intentionally quiet by default. Restoring a snapshot
+can rebuild the in-memory log without re-sending historical events to external
+systems. Use `append(event, notify=True)` when imported events should also be
+sent to sinks.
+
 ## Stable Event Families
 
 Provider events:
@@ -31,6 +61,12 @@ Provider events:
 - `ProviderDone`: `agent`, `provider`, `mode`, with optional `finish_reason`,
   `usage`, and `chunks`.
 - `ProviderError`: `agent`, `provider`, `mode`, `error`, `message`.
+
+Structured output events:
+
+- `StructuredOutputRequested`: `schema`, optional `attempt`.
+- `StructuredOutputParsed`: `valid`, optional `attempt` and `errors`.
+- `StructuredOutputValidationFailed`: `errors`, optional `attempt`.
 
 Tool events:
 

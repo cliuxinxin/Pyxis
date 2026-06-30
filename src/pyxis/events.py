@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol
 from uuid import uuid4
 
+from pyxis.errors import EventSinkError
 from pyxis.serialization import to_jsonable
 
 EVENT_SCHEMA_VERSION = 1
@@ -20,6 +21,9 @@ class EventType(str, Enum):
     COMPASS_DECISION_MADE = "CompassDecisionMade"
     AGENT_ACTION_PARSED = "AgentActionParsed"
     AGENT_RESPONDED = "AgentResponded"
+    STRUCTURED_OUTPUT_REQUESTED = "StructuredOutputRequested"
+    STRUCTURED_OUTPUT_PARSED = "StructuredOutputParsed"
+    STRUCTURED_OUTPUT_VALIDATION_FAILED = "StructuredOutputValidationFailed"
     PROVIDER_STARTED = "ProviderStarted"
     PROVIDER_DONE = "ProviderDone"
     PROVIDER_ERROR = "ProviderError"
@@ -72,6 +76,24 @@ EVENT_SCHEMAS: dict[str, EventSchema] = {
         type=EventType.AGENT_RESPONDED.value,
         required=("content",),
         description="The agent produced user-facing output.",
+    ),
+    EventType.STRUCTURED_OUTPUT_REQUESTED.value: EventSchema(
+        type=EventType.STRUCTURED_OUTPUT_REQUESTED.value,
+        required=("schema",),
+        optional=("attempt",),
+        description="A structured output request was prepared for a provider.",
+    ),
+    EventType.STRUCTURED_OUTPUT_PARSED.value: EventSchema(
+        type=EventType.STRUCTURED_OUTPUT_PARSED.value,
+        required=("valid",),
+        optional=("attempt", "errors"),
+        description="A provider response was parsed as structured output.",
+    ),
+    EventType.STRUCTURED_OUTPUT_VALIDATION_FAILED.value: EventSchema(
+        type=EventType.STRUCTURED_OUTPUT_VALIDATION_FAILED.value,
+        required=("errors",),
+        optional=("attempt",),
+        description="A structured output response failed local validation.",
     ),
     EventType.PROVIDER_STARTED.value: EventSchema(
         type=EventType.PROVIDER_STARTED.value,
@@ -200,21 +222,55 @@ class Event:
         }
 
 
-class EventLog:
-    """Append-only event log."""
+class EventSink(Protocol):
+    """Protocol for persisting or forwarding emitted events."""
+
+    def write(self, event: Event) -> None:
+        ...
+
+
+class NullEventSink:
+    """Event sink that intentionally discards events."""
+
+    def write(self, event: Event) -> None:
+        return None
+
+
+class InMemoryEventSink:
+    """Simple event sink useful for tests and host-side inspection."""
 
     def __init__(self) -> None:
         self._events: list[Event] = []
+
+    def write(self, event: Event) -> None:
+        self._events.append(event)
+
+    def all(self) -> list[Event]:
+        return list(self._events)
+
+    def to_list(self) -> list[dict[str, Any]]:
+        return [event.to_dict() for event in self._events]
+
+
+class EventLog:
+    """Append-only event log."""
+
+    def __init__(self, *, sinks: list[EventSink] | None = None) -> None:
+        self._events: list[Event] = []
+        self._sinks = list(sinks or [])
 
     def emit(self, event_type: str | EventType, **payload: Any) -> Event:
         event_name = event_type.value if isinstance(event_type, EventType) else event_type
         self._validate_payload(event_name, payload)
         event = Event(type=event_name, payload=payload)
         self._events.append(event)
+        self._write_sinks(event)
         return event
 
-    def append(self, event: Event) -> None:
+    def append(self, event: Event, *, notify: bool = False) -> None:
         self._events.append(event)
+        if notify:
+            self._write_sinks(event)
 
     def all(self) -> list[Event]:
         return list(self._events)
@@ -227,6 +283,16 @@ class EventLog:
 
     def __len__(self) -> int:
         return len(self._events)
+
+    def _write_sinks(self, event: Event) -> None:
+        for sink in self._sinks:
+            try:
+                sink.write(event)
+            except Exception as exc:
+                raise EventSinkError(
+                    f"Event sink {sink.__class__.__name__} failed to write "
+                    f"event {event.type!r}: {exc}"
+                ) from exc
 
     def _validate_payload(self, event_type: str, payload: dict[str, Any]) -> None:
         schema = EVENT_SCHEMAS.get(event_type)

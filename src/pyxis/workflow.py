@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -120,6 +121,55 @@ class Workflow:
 
             if step.fn is None:
                 raise TypeError(f"Workflow step {step.name!r} does not have a callable.")
+            if inspect.iscoroutinefunction(step.fn):
+                raise TypeError(
+                    f"Workflow step {step.name!r} is async. Use Workflow.arun() "
+                    "or Session.arun()."
+                )
+            output = step.fn(current)
+            if inspect.isawaitable(output):
+                close = getattr(output, "close", None)
+                if callable(close):
+                    close()
+                raise TypeError(
+                    f"Workflow step {step.name!r} returned an awaitable. "
+                    "Use Workflow.arun() or Session.arun()."
+                )
+            current = output
+            completed_steps.append(step.name)
+        return WorkflowResult(name=self.name, output=current, steps=completed_steps, state=current)
+
+    async def arun(
+        self,
+        value: Any,
+        *,
+        start_at: int = 0,
+        completed: list[str] | None = None,
+    ) -> WorkflowResult:
+        current = value
+        completed_steps = list(completed or [])
+        for index in range(start_at, len(self.steps)):
+            step = self.steps[index]
+            if step.kind != WorkflowStepKind.CALLABLE:
+                return WorkflowResult(
+                    name=self.name,
+                    output=current,
+                    steps=completed_steps,
+                    paused=True,
+                    current_step=index,
+                    state=current,
+                    metadata={
+                        "kind": step.kind.value,
+                        "reason": step.reason,
+                        "step": step.name,
+                        "prompt": step.prompt,
+                    },
+                )
+
+            if step.fn is None:
+                raise TypeError(f"Workflow step {step.name!r} does not have a callable.")
             current = step.fn(current)
+            if inspect.isawaitable(current):
+                current = await current
             completed_steps.append(step.name)
         return WorkflowResult(name=self.name, output=current, steps=completed_steps, state=current)

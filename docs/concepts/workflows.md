@@ -18,6 +18,27 @@ result = workflow.run("  Pyxis keeps work controllable.  ")
 print(result.output)
 ```
 
+## Async Workflows
+
+Use `arun()` when a workflow includes async steps:
+
+```python
+async def fetch(value: str) -> str:
+    return f"{value}:fetched"
+
+workflow = (
+    Workflow("collect")
+    .step("fetch", fetch)
+    .step("parse", lambda value: value.upper())
+)
+
+result = await session.arun(workflow, "signal")
+print(result.output)
+```
+
+Synchronous runners reject async steps with a clear error instead of starting or
+owning an event loop implicitly.
+
 ## Checkpointed Workflows
 
 Run workflows through a `Session` when you want checkpoint and resume support:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,14 @@ from pyxis.policy import ControlPolicy
 from pyxis.results import NavigationResult, StreamEvent, ToolResult, WorkflowResult
 from pyxis.serialization import to_jsonable
 from pyxis.snapshots import SnapshotMetadata, SnapshotRedactionPolicy, save_snapshot
+from pyxis.structured import (
+    StructuredResult,
+    parse_structured_output,
+    retry_structured_prompt,
+    structured_prompt,
+)
 from pyxis.tools import ToolCall
+from pyxis.types import JsonDict
 from pyxis.workflow import Workflow, WorkflowStepKind
 
 
@@ -136,6 +144,86 @@ class Session:
         """Run the session agent while preserving provider lifecycle events."""
 
         return self._run_agent_with_events(prompt, context=context or {})
+
+    async def arun_agent(self, prompt: str, *, context: dict[str, Any] | None = None):
+        """Run the session agent asynchronously while preserving provider events."""
+
+        return await self._arun_agent_with_events(prompt, context=context or {})
+
+    def structured_run(
+        self,
+        prompt: str,
+        *,
+        schema: JsonDict,
+        max_retries: int = 0,
+        context: dict[str, Any] | None = None,
+    ) -> StructuredResult:
+        """Run the agent and parse its response as schema-constrained JSON."""
+
+        self.dialogue.add("user", prompt)
+        self.events.emit(EventType.USER_MESSAGE_RECEIVED, content=prompt)
+
+        errors: list[str] = []
+        raw_output = ""
+        provider_metadata: dict[str, Any] = {}
+        attempts = max(0, max_retries) + 1
+
+        for attempt in range(1, attempts + 1):
+            self.events.emit(
+                EventType.STRUCTURED_OUTPUT_REQUESTED,
+                schema=schema,
+                attempt=attempt,
+            )
+            if attempt == 1:
+                provider_prompt = structured_prompt(prompt, schema)
+            else:
+                provider_prompt = retry_structured_prompt(prompt, schema, errors)
+
+            agent_result = self.run_agent(
+                provider_prompt,
+                context={"structured": True, "attempt": attempt, **(context or {})},
+            )
+            raw_output = agent_result.output
+            provider_metadata = agent_result.metadata
+            result = parse_structured_output(raw_output, schema)
+            self.events.emit(
+                EventType.STRUCTURED_OUTPUT_PARSED,
+                valid=result.valid,
+                errors=result.errors,
+                attempt=attempt,
+            )
+            if result.valid:
+                self.dialogue.add("agent", raw_output)
+                self.events.emit(EventType.AGENT_RESPONDED, content=raw_output)
+                return StructuredResult(
+                    output=result.output,
+                    raw_output=result.raw_output,
+                    valid=True,
+                    errors=[],
+                    metadata={
+                        "attempts": attempt,
+                        "provider": provider_metadata,
+                    },
+                )
+
+            errors = result.errors
+            self.events.emit(
+                EventType.STRUCTURED_OUTPUT_VALIDATION_FAILED,
+                errors=errors,
+                attempt=attempt,
+            )
+
+        self.dialogue.add("agent", raw_output)
+        self.events.emit(EventType.AGENT_RESPONDED, content=raw_output)
+        return StructuredResult(
+            raw_output=raw_output,
+            valid=False,
+            errors=errors,
+            metadata={
+                "attempts": attempts,
+                "provider": provider_metadata,
+            },
+        )
 
     def parse_action(self, output: str):
         """Parse a model response into the Pyxis action protocol."""
@@ -352,6 +440,36 @@ class Session:
         )
         return result
 
+    async def _arun_agent_with_events(self, prompt: str, *, context: dict[str, Any]):
+        provider = self._provider_name()
+        self.events.emit(
+            EventType.PROVIDER_STARTED,
+            agent=self.agent.name,
+            provider=provider,
+            mode="complete",
+        )
+        try:
+            result = await self.agent.arun(prompt, context=context)
+        except Exception as exc:
+            self.events.emit(
+                EventType.PROVIDER_ERROR,
+                agent=self.agent.name,
+                provider=provider,
+                mode="complete",
+                error=exc.__class__.__name__,
+                message=str(exc),
+            )
+            raise
+
+        self.events.emit(
+            EventType.PROVIDER_DONE,
+            agent=self.agent.name,
+            provider=provider,
+            mode="complete",
+            finish_reason=result.metadata.get("finish_reason"),
+        )
+        return result
+
     def _stream_agent_with_events(self, prompt: str, *, context: dict[str, Any]):
         provider = self._provider_name()
         chunks = 0
@@ -508,6 +626,83 @@ class Session:
         self.events.emit(EventType.TOOL_CALL_COMPLETED, tool=call.name)
         return result
 
+    async def acall_tool(self, name: str, *args: Any, **kwargs: Any) -> ToolResult:
+        tool = self.agent.get_tool(name)
+        if tool is None:
+            raise ToolNotFound(f"Agent {self.agent.name!r} does not have tool {name!r}.")
+
+        try:
+            tool.validate_arguments(*args, **kwargs)
+        except ToolValidationError as exc:
+            self.events.emit(EventType.TOOL_VALIDATION_FAILED, tool=tool.name, error=str(exc))
+            raise
+
+        action = tool.action or "tool_call"
+        call = ToolCall(
+            name=tool.name,
+            args=args,
+            kwargs=kwargs,
+            risk=tool.risk,
+            action=action,
+        )
+        self.events.emit(
+            EventType.TOOL_CALL_REQUESTED,
+            tool=call.name,
+            action=call.action,
+            risk=call.risk,
+        )
+
+        decision = self.policy.decide(action=call.action, risk=call.risk)
+        if not decision.allowed:
+            self.events.emit(
+                EventType.POLICY_DENIED,
+                tool=call.name,
+                action=call.action,
+                reason=decision.reason,
+            )
+            raise PolicyDeniedError(decision.reason)
+
+        if decision.requires_confirmation:
+            checkpoint = self.checkpoint(
+                reason=f"Tool {call.name!r} requires confirmation before execution.",
+                action=call.action,
+                payload={
+                    "kind": "tool_call",
+                    "tool": call.name,
+                    "args": list(call.args),
+                    "kwargs": call.kwargs,
+                    "risk": call.risk,
+                    "effective_risk": decision.effective_risk,
+                    "policy_reason": decision.reason,
+                },
+                summary=f"Pyxis wants to run tool {call.name!r}.",
+                risk_reason=decision.reason,
+                preview=self._preview_tool_call(call),
+                options=decision.options,
+            )
+            self.pending_tool_calls[checkpoint.id] = call
+            self.events.emit(
+                EventType.TOOL_CALL_PAUSED,
+                tool=call.name,
+                checkpoint_id=checkpoint.id,
+                policy_reason=decision.reason,
+            )
+            return ToolResult(
+                name=call.name,
+                requires_confirmation=True,
+                checkpoint=checkpoint,
+                metadata={
+                    "risk": call.risk,
+                    "effective_risk": decision.effective_risk,
+                    "action": call.action,
+                    "policy_reason": decision.reason,
+                },
+            )
+
+        result = await tool.acall(*call.args, **call.kwargs)
+        self.events.emit(EventType.TOOL_CALL_COMPLETED, tool=call.name)
+        return result
+
     def approve_checkpoint(self, checkpoint_id: str) -> Checkpoint:
         checkpoint = self.get_checkpoint(checkpoint_id)
         checkpoint.approve()
@@ -547,6 +742,33 @@ class Session:
         del self.pending_tool_calls[checkpoint.id]
         return result
 
+    async def aresume_checkpoint(self, checkpoint_id: str) -> ToolResult:
+        checkpoint = self.get_checkpoint(checkpoint_id)
+        if checkpoint.status == CheckpointStatus.REJECTED:
+            raise CheckpointRejected(f"Checkpoint {checkpoint_id!r} was rejected.")
+        if checkpoint.status != CheckpointStatus.APPROVED:
+            raise CheckpointNotApproved(f"Checkpoint {checkpoint_id!r} is not approved.")
+
+        call = self.pending_tool_calls.get(checkpoint.id)
+        if call is None:
+            raise CheckpointNotFound(
+                f"Checkpoint {checkpoint_id!r} does not have a pending tool call."
+            )
+
+        tool = self.agent.get_tool(call.name)
+        if tool is None:
+            raise ToolNotFound(f"Agent {self.agent.name!r} does not have tool {call.name!r}.")
+
+        self.events.emit(EventType.CHECKPOINT_RESUMED, checkpoint_id=checkpoint.id, tool=call.name)
+        result = await tool.acall(*call.args, **call.kwargs)
+        self.events.emit(
+            EventType.TOOL_CALL_COMPLETED,
+            tool=call.name,
+            checkpoint_id=checkpoint.id,
+        )
+        del self.pending_tool_calls[checkpoint.id]
+        return result
+
     def resume_workflow(self, checkpoint_id: str) -> WorkflowResult:
         checkpoint = self.get_checkpoint(checkpoint_id)
         if checkpoint.status == CheckpointStatus.REJECTED:
@@ -566,6 +788,39 @@ class Session:
             checkpoint_id=checkpoint.id,
         )
         result = self._run_workflow(
+            pending.workflow,
+            pending.state,
+            start_at=pending.next_step,
+            completed=pending.completed_steps,
+        )
+        if not result.paused:
+            self.events.emit(
+                EventType.WORKFLOW_COMPLETED,
+                workflow=pending.workflow.name,
+                steps=result.steps,
+            )
+        del self.pending_workflows[checkpoint.id]
+        return result
+
+    async def aresume_workflow(self, checkpoint_id: str) -> WorkflowResult:
+        checkpoint = self.get_checkpoint(checkpoint_id)
+        if checkpoint.status == CheckpointStatus.REJECTED:
+            raise CheckpointRejected(f"Checkpoint {checkpoint_id!r} was rejected.")
+        if checkpoint.status != CheckpointStatus.APPROVED:
+            raise CheckpointNotApproved(f"Checkpoint {checkpoint_id!r} is not approved.")
+
+        pending = self.pending_workflows.get(checkpoint.id)
+        if pending is None:
+            raise CheckpointNotFound(
+                f"Checkpoint {checkpoint_id!r} does not have a pending workflow."
+            )
+
+        self.events.emit(
+            EventType.WORKFLOW_RESUMED,
+            workflow=pending.workflow.name,
+            checkpoint_id=checkpoint.id,
+        )
+        result = await self._arun_workflow(
             pending.workflow,
             pending.state,
             start_at=pending.next_step,
@@ -649,6 +904,17 @@ class Session:
             )
         return result
 
+    async def arun(self, workflow: Workflow, value: Any) -> WorkflowResult:
+        self.events.emit(EventType.WORKFLOW_STARTED, workflow=workflow.name)
+        result = await self._arun_workflow(workflow, value)
+        if not result.paused:
+            self.events.emit(
+                EventType.WORKFLOW_COMPLETED,
+                workflow=workflow.name,
+                steps=result.steps,
+            )
+        return result
+
     def _run_workflow(
         self,
         workflow: Workflow,
@@ -658,6 +924,64 @@ class Session:
         completed: list[str] | None = None,
     ) -> WorkflowResult:
         result = self._run_workflow_steps(
+            workflow,
+            value,
+            start_at=start_at,
+            completed=completed,
+        )
+        if result.paused:
+            step_kind = str(result.metadata.get("kind") or "checkpoint")
+            prompt = str(result.metadata.get("prompt") or "")
+            step_name = str(result.metadata.get("step") or step_kind)
+            reason = str(result.metadata.get("reason") or "Workflow checkpoint.")
+            checkpoint = self.checkpoint(
+                reason=reason,
+                action=f"workflow_{step_kind}",
+                payload={
+                    "kind": "workflow",
+                    "step_kind": step_kind,
+                    "workflow": workflow.name,
+                    "step": step_name,
+                    "prompt": prompt,
+                    "current_step": result.current_step,
+                },
+                summary=self._workflow_checkpoint_summary(workflow.name, step_kind),
+                risk_reason=reason,
+                preview=prompt or step_name,
+            )
+            self.pending_workflows[checkpoint.id] = PendingWorkflow(
+                workflow=workflow,
+                state=result.state,
+                next_step=(result.current_step or 0) + 1,
+                completed_steps=result.steps,
+            )
+            self.events.emit(
+                EventType.WORKFLOW_PAUSED,
+                workflow=workflow.name,
+                checkpoint_id=checkpoint.id,
+            )
+            return WorkflowResult(
+                name=result.name,
+                output=result.output,
+                steps=result.steps,
+                paused=True,
+                checkpoint=checkpoint,
+                current_step=result.current_step,
+                state=result.state,
+                metadata=result.metadata,
+            )
+
+        return result
+
+    async def _arun_workflow(
+        self,
+        workflow: Workflow,
+        value: Any,
+        *,
+        start_at: int = 0,
+        completed: list[str] | None = None,
+    ) -> WorkflowResult:
+        result = await self._arun_workflow_steps(
             workflow,
             value,
             start_at=start_at,
@@ -754,9 +1078,114 @@ class Session:
                     message=message,
                 )
                 raise TypeError(message)
+            if inspect.iscoroutinefunction(step.fn):
+                message = (
+                    f"Workflow step {step.name!r} is async. Use Workflow.arun() "
+                    "or Session.arun()."
+                )
+                self.events.emit(
+                    EventType.WORKFLOW_STEP_FAILED,
+                    workflow=workflow.name,
+                    step=step.name,
+                    index=index,
+                    kind=step.kind.value,
+                    error="TypeError",
+                    message=message,
+                )
+                raise TypeError(message)
+
+            try:
+                output = step.fn(current)
+                if inspect.isawaitable(output):
+                    close = getattr(output, "close", None)
+                    if callable(close):
+                        close()
+                    message = (
+                        f"Workflow step {step.name!r} returned an awaitable. "
+                        "Use Workflow.arun() or Session.arun()."
+                    )
+                    raise TypeError(message)
+                current = output
+            except Exception as exc:
+                self.events.emit(
+                    EventType.WORKFLOW_STEP_FAILED,
+                    workflow=workflow.name,
+                    step=step.name,
+                    index=index,
+                    kind=step.kind.value,
+                    error=exc.__class__.__name__,
+                    message=str(exc),
+                )
+                raise
+
+            completed_steps.append(step.name)
+            self.events.emit(
+                EventType.WORKFLOW_STEP_COMPLETED,
+                workflow=workflow.name,
+                step=step.name,
+                index=index,
+                kind=step.kind.value,
+            )
+
+        return WorkflowResult(
+            name=workflow.name,
+            output=current,
+            steps=completed_steps,
+            state=current,
+        )
+
+    async def _arun_workflow_steps(
+        self,
+        workflow: Workflow,
+        value: Any,
+        *,
+        start_at: int = 0,
+        completed: list[str] | None = None,
+    ) -> WorkflowResult:
+        current = value
+        completed_steps = list(completed or [])
+        for index in range(start_at, len(workflow.steps)):
+            step = workflow.steps[index]
+            self.events.emit(
+                EventType.WORKFLOW_STEP_STARTED,
+                workflow=workflow.name,
+                step=step.name,
+                index=index,
+                kind=step.kind.value,
+            )
+            if step.kind != WorkflowStepKind.CALLABLE:
+                return WorkflowResult(
+                    name=workflow.name,
+                    output=current,
+                    steps=completed_steps,
+                    paused=True,
+                    current_step=index,
+                    state=current,
+                    metadata={
+                        "kind": step.kind.value,
+                        "reason": step.reason,
+                        "step": step.name,
+                        "prompt": step.prompt,
+                    },
+                )
+
+            if step.fn is None:
+                message = f"Workflow step {step.name!r} does not have a callable."
+                self.events.emit(
+                    EventType.WORKFLOW_STEP_FAILED,
+                    workflow=workflow.name,
+                    step=step.name,
+                    index=index,
+                    kind=step.kind.value,
+                    error="TypeError",
+                    message=message,
+                )
+                raise TypeError(message)
 
             try:
                 current = step.fn(current)
+                if inspect.isawaitable(current):
+                    current = await current
             except Exception as exc:
                 self.events.emit(
                     EventType.WORKFLOW_STEP_FAILED,

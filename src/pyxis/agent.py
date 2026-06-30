@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 
 from pyxis.actions import build_action_instructions
@@ -38,6 +39,33 @@ class Agent:
             cancellation_token=cancellation_token,
         )
         result = self.provider.complete(request)
+        return AgentResult(
+            output=self.response_style.apply(result.output),
+            raw=result.raw,
+            metadata=result.metadata,
+        )
+
+    async def arun(
+        self,
+        prompt: str,
+        *,
+        context: dict | None = None,
+        timeout: float | None = None,
+        cancellation_token: CancellationToken | None = None,
+    ) -> AgentResult:
+        request = self.completion_request(
+            prompt,
+            context=context,
+            timeout=timeout,
+            cancellation_token=cancellation_token,
+        )
+        acomplete = getattr(self.provider, "acomplete", None)
+        if callable(acomplete):
+            result = acomplete(request)
+            if inspect.isawaitable(result):
+                result = await result
+        else:
+            result = self.provider.complete(request)
         return AgentResult(
             output=self.response_style.apply(result.output),
             raw=result.raw,

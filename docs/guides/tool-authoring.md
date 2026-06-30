@@ -20,6 +20,19 @@ Choose:
   `summarize`.
 - docstring: short human-readable description for the tool manifest.
 
+Async tools are supported through the async session API:
+
+```python
+@tool(risk="low", action="network_fetch")
+async def fetch_url(url: str) -> str:
+    return f"body:{url}"
+
+result = await session.acall_tool("fetch_url", "https://example.com")
+```
+
+Use `call_tool()` for sync tools and `acall_tool()` for async tools. Pyxis does
+not run async tools from the sync API.
+
 ## Validation
 
 Pyxis validates tool arguments before execution. Validation catches:

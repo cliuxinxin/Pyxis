@@ -25,6 +25,30 @@ for event in session.stream("Draft a concise plan"):
         print(event.data["text"], end="")
 ```
 
+## Get Structured JSON
+
+```python
+schema = {
+    "type": "object",
+    "required": ["importance", "reason"],
+    "properties": {
+        "importance": {"type": "number"},
+        "reason": {"type": "string"},
+    },
+}
+
+result = session.structured_run(
+    "Score this signal",
+    schema=schema,
+    max_retries=1,
+)
+
+if result.valid:
+    print(result.output["importance"])
+else:
+    print(result.errors)
+```
+
 ## Add A Controlled Tool
 
 ```python
@@ -80,3 +104,52 @@ for event in session.events:
 
 Use `EVENT_SCHEMAS` when building a host UI or log exporter that needs stable
 payload contracts.
+
+## Attach An Event Sink
+
+```python
+from pyxis import Agent, EventLog, InMemoryEventSink, Session
+
+sink = InMemoryEventSink()
+session = Session(
+    agent=Agent(name="navigator"),
+    events=EventLog(sinks=[sink]),
+)
+
+session.navigate("Draft a concise plan")
+print(sink.to_list())
+```
+
+## Keep Long-Term Preferences
+
+```python
+from pyxis import InMemoryStore
+
+store = InMemoryStore()
+store.set(
+    "user",
+    "watchlist",
+    ["agent frameworks", "AI infrastructure"],
+    metadata={"source": "explicit_feedback"},
+)
+
+topics = store.get("user", "watchlist", default=[])
+```
+
+Use the `MemoryStore` protocol for product-level memory. Database-backed stores
+belong in the host application or an extension package.
+
+## Call Pyxis From A Scheduler
+
+```python
+def run_daily_briefing():
+    session = build_session()
+    return session.structured_run(
+        "Generate today's briefing",
+        schema=briefing_schema,
+        max_retries=1,
+    )
+```
+
+The scheduler owns when this function runs. Pyxis owns the controllable agent
+work inside the function.

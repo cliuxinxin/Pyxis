@@ -38,6 +38,12 @@ workflows.
 - Explicit stream retry semantics: retry before a stream opens, no replay after
   deltas may have been emitted.
 - Programmable turn control primitives for PyTorch-like custom agent loops.
+- Event sinks for forwarding emitted events to host storage or UI surfaces.
+- Structured output helpers with lightweight JSON schema validation and retry.
+- Async tools, async providers, async workflow execution, and async checkpoint
+  resume.
+- Long-term `MemoryStore` protocol with no-op and in-memory implementations.
+- Scheduler recipes that keep scheduling outside Pyxis core.
 
 ## Near-Term
 
